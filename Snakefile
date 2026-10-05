@@ -88,6 +88,31 @@ rule make_test_data:
         """
 
 
+# Test scenes cut from Maxar Open Data, listed under maxar_open_samples in
+# the config (see config/config.sample.yaml).
+SAMPLES = config.get("maxar_open_samples") or {}
+
+
+rule fetch_maxar_sample:
+    input:
+        ENV_READY,
+    output:
+        os.path.join(SCENE_DIR, "{sample}" + SCENE_SUFFIX),
+    wildcard_constraints:
+        sample="|".join(SAMPLES) or "^$",
+    params:
+        s=lambda wc: SAMPLES[wc.sample],
+    log:
+        "logs/fetch_maxar_sample/{sample}.log",
+    shell:
+        """
+        {ENV_PYTHON} scripts/fetch_maxar_open_sample.py \
+            --ms-url {params.s[ms_url]} --pan-url {params.s[pan_url]} \
+            --lon {params.s[lon]} --lat {params.s[lat]} --size-m {params.s[size_m]} \
+            --out {output} > {log} 2>&1
+        """
+
+
 rule infer:
     input:
         env=ENV_READY,

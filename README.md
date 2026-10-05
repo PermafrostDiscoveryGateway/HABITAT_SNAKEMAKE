@@ -16,7 +16,11 @@ cd HABITAT_SNAKEMAKE
 snakemake --configfile config/config.test.yaml --cores 2
 ```
 
-This smoke test runs the full pipeline on a synthetic scene with an untrained model. For real scenes, edit `config/config.local.yaml`, then run:
+This smoke test runs the full pipeline on a synthetic scene with an untrained model.
+
+To run the real model on real imagery without licensed data, download the weights (see [Running locally](docs/02-running-locally.md#model-weights)) and run `snakemake --configfile config/config.sample.yaml --cores 8`. That builds a 2 km scene of downtown Yellowknife from Maxar Open Data.
+
+For your own scenes, edit `config/config.local.yaml`, then run:
 
 ```bash
 snakemake --configfile config/config.local.yaml --cores 4

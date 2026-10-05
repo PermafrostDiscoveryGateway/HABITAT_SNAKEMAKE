@@ -8,11 +8,13 @@ HABITAT_SNAKEMAKE/
 ├── Snakefile                   # the workflow
 ├── config/
 │   ├── config.test.yaml        # smoke test
+│   ├── config.sample.yaml      # Maxar Open Data scene of Yellowknife
 │   └── config.local.yaml       # real scenes, local machine
 ├── envs/requirements.txt       # HABITAT's Python environment
 ├── scripts/
 │   ├── habitat_runner.py       # runs HABITAT for one scene with our config
-│   └── make_test_data.py       # synthetic inputs for the smoke test
+│   ├── make_test_data.py       # synthetic inputs for the smoke test
+│   └── fetch_maxar_open_sample.py  # sample scene from Maxar Open Data
 ├── docs/                       # this site
 └── mkdocs.yml
 ```
@@ -23,6 +25,7 @@ HABITAT_SNAKEMAKE/
 |---|---|---|
 | `build_env` | Once, and again when `envs/requirements.txt` changes | `.venv-habitat/` |
 | `make_test_data` | Only when a config asks for the files under `test_data/` | Synthetic scene, footprint, weights |
+| `fetch_maxar_sample` | Only for scenes listed under `maxar_open_samples` | A pansharpened Maxar Open Data scene |
 | `infer` | Once per scene | `<output_dir>/<scene>_final.shp` |
 | `all` | Default target | All scenes' shapefiles |
 
