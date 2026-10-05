@@ -14,6 +14,7 @@
 # Dry run: add -n.
 
 import os
+import subprocess
 
 if not config:
     raise WorkflowError("Pass a config, e.g. --configfile config/config.test.yaml")
@@ -32,6 +33,11 @@ SCENE_SUFFIX = config.get("scene_suffix", ".tif")
 OUTPUT_DIR = config["output_dir"]
 FOOTPRINT = config.get("footprint")
 MODEL = config.get("model", {})
+
+# The HABITAT commit is a param of `infer`, so moving the submodule to a new
+# commit marks existing outputs as out of date (see docs/04-updating-habitat.md).
+HABITAT_COMMIT = subprocess.run(["git", "-C", HABITAT_DIR, "rev-parse", "HEAD"],
+                                capture_output=True, text=True).stdout.strip() or "unknown"
 
 
 def scenes():
@@ -99,6 +105,7 @@ rule infer:
         overlap=MODEL.get("overlap", 0.5),
         classes=MODEL.get("classes", 3),
         encoder=MODEL.get("encoder", "resnet50"),
+        habitat_commit=HABITAT_COMMIT,
     log:
         "logs/infer/{scene}.log",
     benchmark:
@@ -106,10 +113,11 @@ rule infer:
     threads: config.get("threads_per_scene", 1)
     shell:
         """
-        OMP_NUM_THREADS={threads} {ENV_PYTHON} scripts/habitat_runner.py \
+        (echo "HABITAT commit: {params.habitat_commit}"
+         OMP_NUM_THREADS={threads} {ENV_PYTHON} scripts/habitat_runner.py \
             --habitat-dir {HABITAT_DIR} --scene-dir {SCENE_DIR} --output-dir {OUTPUT_DIR} \
             --weights {input.weights} --image {params.image} {params.footprint} \
             --device {params.device} --no-data-value {params.no_data} \
             --size {params.size} --overlap {params.overlap} --classes {params.classes} \
-            --encoder {params.encoder} > {log} 2>&1
+            --encoder {params.encoder}) > {log} 2>&1
         """

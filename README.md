@@ -2,52 +2,50 @@
 
 Runs [HABITAT](https://github.com/PermafrostDiscoveryGateway/HABITAT) inference with Snakemake. The goal is running it on NCSA Delta, but for now it runs locally.
 
+**Documentation:** <https://PermafrostDiscoveryGateway.github.io/HABITAT_SNAKEMAKE/> (source in [`docs/`](docs/))
+
 HABITAT is included as a git submodule (`HABITAT/`) pinned to a specific commit, and is never edited here. Each scene becomes one `infer` job, which runs HABITAT's `full_pipeline.py` (clip → tile → infer → stitch → morphology → georeference → polygonize) and writes `<output_dir>/<scene>_final.shp`.
 
-## Setup
+## Quick start
+
+You need `snakemake` (8 or later) and [`uv`](https://docs.astral.sh/uv/). The workflow builds HABITAT's own Python environment on first run.
 
 ```bash
 git clone --recurse-submodules https://github.com/PermafrostDiscoveryGateway/HABITAT_SNAKEMAKE.git
 cd HABITAT_SNAKEMAKE
-```
-
-(In an existing clone: `git submodule update --init`.)
-
-You need `snakemake` (8 or later) and [`uv`](https://docs.astral.sh/uv/). The Python environment HABITAT runs in (`.venv-habitat/`, pinned in `envs/requirements.txt`) is built by the workflow on first run, so there is nothing to activate.
-
-## Smoke test
-
-This test creates a synthetic 4-band scene, a footprint and an **untrained** model, then runs the full pipeline on them on the CPU:
-
-```bash
 snakemake --configfile config/config.test.yaml --cores 2
 ```
 
-The output goes to `results/test/synthetic_scene_final.shp`. The polygons are meaningless; the test only shows that every step runs.
-
-## Running on real scenes
-
-Edit `config/config.local.yaml`: set `scene_dir`, `footprint`, `weights` and the `model` settings matching those weights. Then:
+This smoke test runs the full pipeline on a synthetic scene with an untrained model. For real scenes, edit `config/config.local.yaml`, then run:
 
 ```bash
-snakemake --configfile config/config.local.yaml --cores 4 -n   # dry run
 snakemake --configfile config/config.local.yaml --cores 4
 ```
 
-Snakemake skips scenes whose `_final.shp` already exists, so an interrupted run can just be restarted.
+See [Running locally](docs/02-running-locally.md) for configuration and outputs.
 
-| Path | What |
-|---|---|
-| `logs/infer/<scene>.log` | HABITAT's output for each scene |
-| `benchmarks/infer/<scene>.tsv` | Runtime per scene (use these to estimate GPU-hours) |
-| `logs/build_env.log` | Environment build |
+## Keeping HABITAT up to date
 
-## How the config gets into HABITAT
+This repo records one HABITAT commit, and the workflow always runs that commit. New commits to HABITAT have no effect here until the submodule is updated and the change is committed. That way, every result traces back to the exact HABITAT code that produced it; the commit is printed at the top of each `logs/infer/<scene>.log`.
 
-HABITAT reads its settings from `operational_config.py` and `final_model_config.py`, which hardcode paths on the original cluster. `scripts/habitat_runner.py` puts replacement modules under those names into `sys.modules` before running `full_pipeline.py`, so HABITAT uses the paths from our config. The runner also:
+To move to the latest HABITAT:
 
-- sends HABITAT's hardcoded `.to('cuda')` calls to `device` (`cpu`, or `mps` on Apple silicon) when there is no GPU, and loads the weights with `map_location` set to that device;
-- stubs out `tensorflow`, which HABITAT only uses for training;
-- supplies `no_data_value` when `footprint` is null (`full_pipeline.py` otherwise fails with a NameError in that case).
+```bash
+git submodule update --remote HABITAT          # check out HABITAT's latest main
+git diff --submodule=log HABITAT               # review what changed
+snakemake --configfile config/config.test.yaml --cores 2   # smoke test
+git add HABITAT && git commit -m "Update HABITAT to $(git -C HABITAT rev-parse --short HEAD)"
+git push
+```
 
-These rely on HABITAT's module and attribute names, so after moving the submodule to a newer HABITAT commit, run the smoke test again.
+When reviewing the changes, check for anything `scripts/habitat_runner.py` depends on:
+- new or renamed `Operational_Config` attributes;
+- renamed modules;
+- a different output file name;
+- new dependencies, which go in `envs/requirements.txt`.
+
+After someone else updates it, run `git submodule update --init` after `git pull`, or set `git config submodule.recurse true` once so `git pull` does it automatically.
+
+Snakemake treats outputs made with an older HABITAT commit as out of date and reruns them. Add `--rerun-triggers mtime` to keep them.
+
+The full checklist is in [Updating HABITAT](docs/04-updating-habitat.md).

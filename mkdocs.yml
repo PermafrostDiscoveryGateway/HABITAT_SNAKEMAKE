@@ -1,0 +1,39 @@
+site_name: HABITAT_SNAKEMAKE
+site_description: Running HABITAT Arctic infrastructure mapping with Snakemake, locally and on NCSA Delta
+site_url: https://PermafrostDiscoveryGateway.github.io/HABITAT_SNAKEMAKE/
+repo_url: https://github.com/PermafrostDiscoveryGateway/HABITAT_SNAKEMAKE
+repo_name: PermafrostDiscoveryGateway/HABITAT_SNAKEMAKE
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - tables
+  - toc:
+      permalink: "🔗"
+
+nav:
+  - Home: index.md
+  - 1. Setup: 01-setup.md
+  - 2. Running Locally: 02-running-locally.md
+  - 3. How It Works: 03-how-it-works.md
+  - 4. Updating HABITAT: 04-updating-habitat.md
+  - Documentation Setup: DOCUMENTATION_SETUP.md
