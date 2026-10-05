@@ -1,0 +1,36 @@
+# Running HABITAT on real scenes on this machine. Edit the paths below.
+#   snakemake --configfile config/config.local.yaml --cores 2
+
+habitat_dir: HABITAT
+
+environment:
+  path: .venv-habitat
+  python: "3.10"
+
+# Input Maxar scenes (4+ band GeoTIFFs; HABITAT uses bands 2-4).
+scene_dir: data/scenes
+scene_suffix: .tif
+# Leave out to run every *.tif in scene_dir, or list file names / stems:
+# scenes: [scene_a, scene_b]
+
+# Footprint shapefile with an S_FILENAME column matching the scene file
+# names; each scene is clipped to its footprint. Set to null to skip clipping
+# (no_data_value is then used for the scene's NoData pixels).
+footprint: data/footprints/footprints.shp
+no_data_value: 0
+
+# Trained model (whole pickled torch model, as HABITAT's model_train.py saves it).
+weights: data/model_weights/ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth
+
+output_dir: results/local
+
+# cpu, or mps on Apple silicon.
+device: cpu
+threads_per_scene: 4
+
+# Must match how the weights were trained (operational_config.py in HABITAT).
+model:
+  size: 512
+  overlap: 0.5
+  classes: 3
+  encoder: resnet50

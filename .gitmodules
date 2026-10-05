@@ -1,0 +1,3 @@
+[submodule "HABITAT"]
+	path = HABITAT
+	url = https://github.com/PermafrostDiscoveryGateway/HABITAT.git

@@ -1,0 +1,25 @@
+# Python packages for running HABITAT inference (installed by the build_env rule).
+#
+# HABITAT was written against Python 3.7 / torch 1.10; these are the closest
+# versions that still install on Python 3.10, with the HABITAT APIs it calls:
+#   - tifffile < 2022.4 still has tiff.imsave (postprocess.stitch_preds)
+#   - scikit-image 0.19 still accepts selem= (postprocess.morphological_processing)
+#   - segmentation-models-pytorch 0.2.1 is the version the model weights were pickled with
+#   - numpy < 2 for all of the above
+numpy==1.26.4
+torch==2.2.2
+torchvision==0.17.2
+segmentation-models-pytorch==0.2.1
+timm==0.4.12
+albumentations==1.2.1
+tifffile==2021.11.2
+scikit-image==0.19.3
+opencv-python-headless==4.9.0.80
+rasterio==1.3.10
+geopandas==0.14.4
+shapely==2.0.4
+pyogrio==0.9.0
+natsort==8.4.0
+tqdm==4.66.4
+matplotlib==3.8.4
+pyyaml==6.0.1

@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# HABITAT_SNAKEMAKE
+.snakemake/
+.venv-habitat/
+logs/
+benchmarks/
+results/
+test_data/
+data/
