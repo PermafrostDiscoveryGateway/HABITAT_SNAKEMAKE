@@ -4,11 +4,17 @@
 
 ## Automatic update before each run
 
-With `update_habitat: true` (the default in every config), each `snakemake` invocation, dry runs included, first fast-forwards `HABITAT/` to the latest `origin/main` (or `habitat_branch`, if set). Snakemake prints `Updated HABITAT from <old> to <new>` when it moves. If the fetch fails (no network), `HABITAT/` has local changes, or its history has diverged, Snakemake prints a warning and the run continues on the current commit.
+`run_delta.sh` runs `scripts/update_habitat.sh` before each real run (not dry runs), which fast-forwards `HABITAT/` to the latest `origin/main`. It prints `Updated HABITAT from <old> to <new>` when it moves. If a Snakemake run is already in progress in this checkout, the fetch fails (no network), `HABITAT/` has local changes, or its history has diverged, it prints a warning and the run continues on the current commit.
 
-After an automatic update, `git status` shows `HABITAT` as modified. Commit the new pointer (see [Testing and committing](#testing-and-committing)) so the repository records the commit the results came from.
+For a local run, update first:
 
-Set `update_habitat: false` in the config to always run the pinned commit. The rest of this page covers updating by hand.
+```bash
+scripts/update_habitat.sh && snakemake --configfile config/config.local.yaml --cores 2
+```
+
+After an update, `git status` shows `HABITAT` as modified. Commit the new pointer (see [Testing and committing](#testing-and-committing)) so the repository records the commit the results came from.
+
+Run `UPDATE_HABITAT=false ./run_delta.sh` to keep the pinned commit. The rest of this page covers updating by hand.
 
 ## Which commit is in use
 
