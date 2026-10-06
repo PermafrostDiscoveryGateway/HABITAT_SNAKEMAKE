@@ -1,4 +1,4 @@
-# Snakemake profile for NCSA Delta: each `infer` job (one scene) is a 1-GPU
+# Snakemake profile for NCSA Delta: each `process_scene` job (one scene) is a 1-GPU
 # Slurm job; every other rule runs on the login node (see localrules in the
 # Snakefile). Needs snakemake >= 8 and snakemake-executor-plugin-slurm:
 #   uv tool install snakemake --with snakemake-executor-plugin-slurm
@@ -30,5 +30,5 @@ default-resources:
   mem_mb: 60000
 
 set-resources:
-  infer:
+  process_scene:
     gpu: 1

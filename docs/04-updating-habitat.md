@@ -1,6 +1,6 @@
 # Updating HABITAT
 
-`HABITAT/` is a git submodule. This repository records one specific HABITAT commit, so every result can be traced to the exact HABITAT code that produced it. The commit in use is also printed at the top of each `logs/infer/<scene>.log`.
+`HABITAT/` is a git submodule. This repository records one specific HABITAT commit, so every result can be traced to the exact HABITAT code that produced it. The commit in use is also printed at the top of each `logs/process_scene/<scene>.log`.
 
 ## Automatic update before each run
 
@@ -52,7 +52,7 @@ Pay attention to anything that affects `scripts/habitat_runner.py`:
 
 - **Module and entry point names.** The runner depends on `operational_config`, `final_model_config`, `Operational_Config`, `Final_Config` and `full_pipeline.py --image`. If any of these are renamed, the runner must change to match.
 
-- **Output names.** The `infer` rule expects `<scene>_final.shp` (written in `postprocess.py`). If that file name changes, update the rule's `output:`.
+- **Output names.** The `process_scene` rule expects `<scene>_final.shp` (written in `postprocess.py`). If that file name changes, update the rule's `output:`.
 
 - **Dependencies.** New or upgraded imports belong in `envs/requirements.txt`.
 
@@ -64,7 +64,7 @@ Run the smoke test against the new commit:
 snakemake --configfile config/config.test.yaml --cores 2
 ```
 
-The HABITAT commit is a parameter of the `infer` rule, so after an update Snakemake treats existing outputs as out of date and reruns them. No `--forcerun` is needed.
+The HABITAT commit is a parameter of the `process_scene` rule, so after an update Snakemake treats existing outputs as out of date and reruns them. No `--forcerun` is needed.
 
 If the test passes, commit the new pointer:
 

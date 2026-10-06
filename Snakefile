@@ -1,7 +1,12 @@
 # HABITAT inference as a Snakemake workflow.
 #
-# One `infer` job per scene runs HABITAT's full_pipeline.py (clip -> tile ->
-# infer -> stitch -> morphology -> georeference -> polygonize) through
+# Rules are named after the PDG feature-mapping pipeline steps:
+#   Setup (once):   0 build_environment, 1 download_model
+#   Per scene:      2 download_imagery, then process_scene for steps 3-8
+#                   (clip, tile/patch, inference, stitch,
+#                   threshold/morphology/min-size, polygonize)
+# process_scene runs all of steps 3-8 in one job, because HABITAT's
+# full_pipeline.py passes predictions between them in memory. It runs through
 # scripts/habitat_runner.py, which points HABITAT at the paths in the config
 # without editing the HABITAT submodule. Before anything runs, HABITAT is
 # fast-forwarded to the latest origin/main unless the config sets
@@ -13,7 +18,7 @@
 # Local run on real data (edit the paths first):
 #   snakemake --configfile config/config.local.yaml --cores 2
 #
-# On NCSA Delta, each `infer` job is a 1-GPU Slurm job (docs/05-running-on-delta.md):
+# On NCSA Delta, each `process_scene` job is a 1-GPU Slurm job (docs/05-running-on-delta.md):
 #   ./run_delta.sh
 #
 # Dry run: add -n.
@@ -25,13 +30,13 @@ if not config:
     raise WorkflowError("Pass a config, e.g. --configfile config/config.test.yaml")
 
 # With a cluster executor these run where snakemake runs (the Delta login
-# node, which has internet access); only `infer` is submitted as a job.
+# node, which has internet access); only `process_scene` is submitted as a job.
 localrules:
     all,
-    build_env,
-    download_weights,
+    build_environment,
+    download_model,
     make_test_data,
-    fetch_maxar_sample,
+    download_imagery,
 
 
 wildcard_constraints:
@@ -52,7 +57,7 @@ MODEL = config.get("model", {})
 def update_habitat():
     """Fast-forward HABITAT to the latest origin/<habitat_branch> before the run.
 
-    Runs at parse time, before HABITAT_COMMIT is read, so `infer` sees the new
+    Runs at parse time, before HABITAT_COMMIT is read, so `process_scene` sees the new
     commit. Any failure (no network, local changes, diverged history) only
     warns, and the run continues on the current commit.
     """
@@ -88,7 +93,7 @@ def update_habitat():
 if config.get("update_habitat", True) and workflow.is_main_process:
     update_habitat()
 
-# The HABITAT commit is a param of `infer`, so moving the submodule to a new
+# The HABITAT commit is a param of `process_scene`, so moving the submodule to a new
 # commit marks existing outputs as out of date (see docs/04-updating-habitat.md).
 HABITAT_COMMIT = subprocess.run(["git", "-C", HABITAT_DIR, "rev-parse", "HEAD"],
                                 capture_output=True, text=True).stdout.strip() or "unknown"
@@ -107,8 +112,9 @@ rule all:
         expand(os.path.join(OUTPUT_DIR, "{scene}_final.shp"), scene=scenes()),
 
 
-# Python environment for every HABITAT step, rebuilt when the requirements change.
-rule build_env:
+# Step 0. Python environment for every HABITAT step, rebuilt when the
+# requirements change.
+rule build_environment:
     input:
         "envs/requirements.txt",
     output:
@@ -117,7 +123,7 @@ rule build_env:
         env=ENV_DIR,
         python=config["environment"].get("python", "3.10"),
     log:
-        "logs/build_env.log",
+        "logs/build_environment.log",
     shell:
         """
         (uv venv --allow-existing --python {params.python} {params.env} &&
@@ -125,15 +131,15 @@ rule build_env:
         """
 
 
-# Model weights, downloaded when the config gives a weights_url and the file
+# Step 1. Model weights, downloaded when the config gives a weights_url and the file
 # isn't already at `weights`.
-rule download_weights:
+rule download_model:
     output:
         config["weights"],
     params:
         url=config.get("weights_url", ""),
     log:
-        "logs/download_weights.log",
+        "logs/download_model.log",
     shell:
         """
         if [ -z "{params.url}" ]; then
@@ -144,10 +150,10 @@ rule download_weights:
 
 
 # The smoke test's untrained model comes from make_test_data, not a download.
-ruleorder: make_test_data > download_weights
+ruleorder: make_test_data > download_model
 
 
-# Synthetic inputs referenced by config/config.test.yaml.
+# Not a pipeline step: synthetic inputs referenced by config/config.test.yaml.
 rule make_test_data:
     input:
         ENV_READY,
@@ -164,12 +170,12 @@ rule make_test_data:
         """
 
 
-# Test scenes cut from Maxar Open Data, listed under maxar_open_samples in
+# Step 2. Test scenes cut from Maxar Open Data, listed under maxar_open_samples in
 # the config (see config/config.sample.yaml).
 SAMPLES = config.get("maxar_open_samples") or {}
 
 
-rule fetch_maxar_sample:
+rule download_imagery:
     input:
         ENV_READY,
     output:
@@ -179,7 +185,7 @@ rule fetch_maxar_sample:
     params:
         s=lambda wc: SAMPLES[wc.sample],
     log:
-        "logs/fetch_maxar_sample/{sample}.log",
+        "logs/download_imagery/{sample}.log",
     shell:
         """
         {ENV_PYTHON} scripts/fetch_maxar_open_sample.py \
@@ -189,7 +195,8 @@ rule fetch_maxar_sample:
         """
 
 
-rule infer:
+# Steps 3-8 for one scene, on one GPU.
+rule process_scene:
     input:
         env=ENV_READY,
         scene=os.path.join(SCENE_DIR, "{scene}" + SCENE_SUFFIX),
@@ -208,9 +215,9 @@ rule infer:
         encoder=MODEL.get("encoder", "resnet50"),
         habitat_commit=HABITAT_COMMIT,
     log:
-        "logs/infer/{scene}.log",
+        "logs/process_scene/{scene}.log",
     benchmark:
-        "benchmarks/infer/{scene}.tsv"
+        "benchmarks/process_scene/{scene}.tsv"
     threads: config.get("threads_per_scene", 1)
     shell:
         """

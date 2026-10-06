@@ -26,14 +26,14 @@ HABITAT_SNAKEMAKE/
 
 | Rule | Runs | Output |
 |---|---|---|
-| `build_env` | Once, and again when `envs/requirements.txt` changes | `.venv-habitat/` |
-| `download_weights` | Only when `weights` is missing and the config gives a `weights_url` | The model weights |
+| `build_environment` | Once, and again when `envs/requirements.txt` changes | `.venv-habitat/` |
+| `download_model` | Only when `weights` is missing and the config gives a `weights_url` | The model weights |
 | `make_test_data` | Only when a config asks for the files under `test_data/` | Synthetic scene, footprint, weights |
-| `fetch_maxar_sample` | Only for scenes listed under `maxar_open_samples` | A pansharpened Maxar Open Data scene |
-| `infer` | Once per scene | `<output_dir>/<scene>_final.shp` |
+| `download_imagery` | Only for scenes listed under `maxar_open_samples` | A pansharpened Maxar Open Data scene |
+| `process_scene` | Once per scene | `<output_dir>/<scene>_final.shp` |
 | `all` | Default target | All scenes' shapefiles |
 
-`infer` replaces HABITAT's `run_workflow.py`, which wrote and `sbatch`-ed one job file per scene. Snakemake handles that now, along with throttling, retries and skipping finished scenes. Every rule except `infer` is a `localrule`, so on Delta only `infer` is submitted to Slurm ([Running on Delta](05-running-on-delta.md)).
+`process_scene` replaces HABITAT's `run_workflow.py`, which wrote and `sbatch`-ed one job file per scene. Snakemake handles that now, along with throttling, retries and skipping finished scenes. Every rule except `process_scene` is a `localrule`, so on Delta only `process_scene` is submitted to Slurm ([Running on Delta](05-running-on-delta.md)).
 
 ## Getting the config into HABITAT
 
@@ -41,7 +41,7 @@ Every HABITAT module starts with `from operational_config import *`, and `datalo
 
 Setting `PYTHONPATH` doesn't override them, because running `python HABITAT/full_pipeline.py` puts `HABITAT/` first on `sys.path`. Instead, `scripts/habitat_runner.py`:
 
-1. builds an `Operational_Config` class from its command-line arguments (which the `infer` rule fills in from the config), and a minimal `Final_Config`;
+1. builds an `Operational_Config` class from its command-line arguments (which the `process_scene` rule fills in from the config), and a minimal `Final_Config`;
 2. puts them into `sys.modules` as `operational_config` and `final_model_config`, so HABITAT's imports get these instead of its own files;
 3. adds `HABITAT/` to `sys.path` and runs `full_pipeline.py --image=<scene>` with `runpy`.
 

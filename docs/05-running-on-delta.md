@@ -1,11 +1,11 @@
 # Running on Delta
 
-On [NCSA Delta](https://docs.ncsa.illinois.edu/systems/delta/en/latest/index.html), Snakemake runs on a login node and submits each scene's `infer` job to Slurm as a **1-GPU job**. Everything else runs on the login node, which has internet access: building the environment, downloading the weights, and fetching the sample scene.
+On [NCSA Delta](https://docs.ncsa.illinois.edu/systems/delta/en/latest/index.html), Snakemake runs on a login node and submits each scene's `process_scene` job to Slurm as a **1-GPU job**. Everything else runs on the login node, which has internet access: building the environment, downloading the weights, and fetching the sample scene.
 
 | File | What it sets |
 |---|---|
 | `config/config.delta.yaml` | Paths on Delta, `device: cuda`, CPU cores per job, the scenes to run |
-| `profiles/delta/config.yaml` | Slurm executor, account, partition, memory, time limit, 1 GPU per `infer` job |
+| `profiles/delta/config.yaml` | Slurm executor, account, partition, memory, time limit, 1 GPU per `process_scene` job |
 | `run_delta.sh` | Installs uv and Snakemake if missing, and runs Snakemake with both of the above inside `tmux` |
 
 ## Layout
@@ -47,10 +47,10 @@ The first time, this installs `uv` and Snakemake (with the Slurm executor plugin
 
 | Job | Where | What |
 |---|---|---|
-| `build_env` | login node | Builds the venv. A few minutes; torch with its CUDA libraries is several GB. |
-| `download_weights` | login node | The ~187 MB model from HABITAT's Google Drive folder |
-| `fetch_maxar_sample` | login node | The Yellowknife sample scene (~120 MB read, 130 MB written) |
-| `infer` | Slurm, 1 GPU | HABITAT on the scene |
+| `build_environment` | login node | Builds the venv. A few minutes; torch with its CUDA libraries is several GB. |
+| `download_model` | login node | The ~187 MB model from HABITAT's Google Drive folder |
+| `download_imagery` | login node | The Yellowknife sample scene (~120 MB read, 130 MB written) |
+| `process_scene` | Slurm, 1 GPU | HABITAT on the scene |
 
 ### 3. Run
 
@@ -73,8 +73,8 @@ squeue -u $USER
 ### 4. Results
 
 - **Polygons:** `/work/hdd/biyc/habitat/results/sample/yellowknife_wv03_20230808_final.shp`. They should match the laptop run.
-- **GPU timing:** `benchmarks/infer/yellowknife_wv03_20230808.tsv`. Compare it with the ~271 s on a laptop CPU.
-- **Run log:** `logs/infer/yellowknife_wv03_20230808.log`. Slurm's own logs are under `.snakemake/slurm_logs/`.
+- **GPU timing:** `benchmarks/process_scene/yellowknife_wv03_20230808.tsv`. Compare it with the ~271 s on a laptop CPU.
+- **Run log:** `logs/process_scene/yellowknife_wv03_20230808.log`. Slurm's own logs are under `.snakemake/slurm_logs/`.
 
 ## Resources and cost
 
@@ -83,7 +83,7 @@ Set in `profiles/delta/config.yaml`:
 | Setting | Value | Why |
 |---|---|---|
 | `slurm_partition` | `gpuA40x4` | Charged at **0.5×** per GPU-hour, against 1.0× for `gpuA100x4`. HABITAT runs one 512 px tile at a time, which doesn't need an A100. |
-| `gpu` (infer) | 1 | HABITAT uses a single GPU |
+| `gpu` (process_scene) | 1 | HABITAT uses a single GPU |
 | `threads_per_scene` (config) | 16 | Slurm `--cpus-per-task`. Tiling and post-processing run on the CPU. 16 is a quarter of a 4-GPU node. |
 | `mem_mb` | 60000 | HABITAT holds every tile's prediction in memory (~3 MB per tile) until stitching, so full scenes need tens of GB |
 | `runtime` | 60 min | Plenty for the sample. Raise it for full scenes (Delta's maximum is 48 h). |
@@ -120,7 +120,7 @@ Snakemake skips finished scenes, and `keep-going` means one failed scene doesn't
 |---|---|
 | `sbatch: error: Invalid account` | `slurm_account` doesn't match one listed by `accounts` |
 | Job pending with `MaxGRESPerAccount` | The allocation's GPU limit is reached; jobs wait in the queue |
-| `infer` fails with `CUDA error` or `no CUDA GPUs` | The job didn't get a GPU. Check that `gpu: 1` is under `set-resources: infer` in the profile. |
-| `infer` killed with `OUT_OF_MEMORY` | Scene too large for `mem_mb`; raise it (memory above a quarter node may be charged as more GPUs) |
-| `infer` hits `TIMEOUT` | Raise `runtime` |
+| `process_scene` fails with `CUDA error` or `no CUDA GPUs` | The job didn't get a GPU. Check that `gpu: 1` is under `set-resources: process_scene` in the profile. |
+| `process_scene` killed with `OUT_OF_MEMORY` | Scene too large for `mem_mb`; raise it (memory above a quarter node may be charged as more GPUs) |
+| `process_scene` hits `TIMEOUT` | Raise `runtime` |
 | Snakemake stopped when you logged out | It wasn't in `tmux`; use `run_delta.sh` |

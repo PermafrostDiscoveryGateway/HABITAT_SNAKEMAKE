@@ -6,7 +6,7 @@
 - **[uv](https://docs.astral.sh/uv/)**, used by the workflow to build HABITAT's Python environment
 - **git**
 
-The packages HABITAT itself needs (torch, segmentation-models-pytorch, rasterio, geopandas, …) don't need to be installed by hand. The `build_env` rule installs them into `.venv-habitat/` the first time the workflow runs, from the versions pinned in `envs/requirements.txt`.
+The packages HABITAT itself needs (torch, segmentation-models-pytorch, rasterio, geopandas, …) don't need to be installed by hand. The `build_environment` rule installs them into `.venv-habitat/` the first time the workflow runs, from the versions pinned in `envs/requirements.txt`.
 
 One way to install the two tools:
 

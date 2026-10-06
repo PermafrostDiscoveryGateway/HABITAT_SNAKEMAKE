@@ -18,15 +18,15 @@ snakemake --configfile config/config.test.yaml --cores 2
 
 On the first run this:
 
-1. builds `.venv-habitat/` (`build_env`, a few minutes);
+1. builds `.venv-habitat/` (`build_environment`, a few minutes);
 2. creates a synthetic 1024×1024, 4-band scene in EPSG:3413, a footprint shapefile for it, and an untrained UNet++ model (`make_test_data`, written to `test_data/`);
-3. runs HABITAT on the scene on the CPU (`infer`, about a minute).
+3. runs HABITAT on the scene on the CPU (`process_scene`, about a minute).
 
 The result is `results/test/synthetic_scene_final.shp`. Because the model is untrained, the polygons are meaningless; what matters is that the file exists and is georeferenced inside the footprint.
 
 ## Model weights
 
-The trained operational model is `ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth` (~187 MB), in the public [HABITAT_model_weights](https://drive.google.com/drive/folders/1wnSIv_oDZlFMHtophpVCiaKSC97uvqEQ) Google Drive folder that HABITAT's README links to. The sample, local and Delta configs set `weights_url`, so the `download_weights` rule fetches it on the first run. To download it by hand instead:
+The trained operational model is `ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth` (~187 MB), in the public [HABITAT_model_weights](https://drive.google.com/drive/folders/1wnSIv_oDZlFMHtophpVCiaKSC97uvqEQ) Google Drive folder that HABITAT's README links to. The sample, local and Delta configs set `weights_url`, so the `download_model` rule fetches it on the first run. To download it by hand instead:
 
 ```bash
 mkdir -p data/model_weights
@@ -44,7 +44,7 @@ HABITAT's input imagery is licensed Maxar data, usually obtained through the [Po
 snakemake --configfile config/config.sample.yaml --cores 8
 ```
 
-The `fetch_maxar_sample` rule (`scripts/fetch_maxar_open_sample.py`) works as follows:
+The `download_imagery` rule (`scripts/fetch_maxar_open_sample.py`) works as follows:
 - it reads just that window from the public cloud-optimized GeoTIFFs, so only about 120 MB is downloaded rather than the full files;
 - it pansharpens the Blue, Green, Red and NIR1 bands with the panchromatic band;
 - it writes a 4,096 × 4,096 pixel, 0.5 m, 4-band uint16 scene to `data/sample/scenes/`.
@@ -96,18 +96,18 @@ snakemake --configfile config/config.local.yaml --cores 4
 | Path | Contents |
 |---|---|
 | `<output_dir>/<scene>_final.shp` (+ `.dbf`, `.shx`, `.prj`, `.cpg`) | Infrastructure polygons with a `class` attribute |
-| `logs/infer/<scene>.log` | HABITAT's output for the scene, starting with the HABITAT commit used |
-| `benchmarks/infer/<scene>.tsv` | Runtime for the scene (`s` column, in seconds) |
-| `logs/build_env.log` | Environment build output |
+| `logs/process_scene/<scene>.log` | HABITAT's output for the scene, starting with the HABITAT commit used |
+| `benchmarks/process_scene/<scene>.tsv` | Runtime for the scene (`s` column, in seconds) |
+| `logs/build_environment.log` | Environment build output |
 
 HABITAT deletes its intermediate rasters (clipped, stitched, morphed, georeferenced) once a scene is done.
 
-Snakemake skips scenes whose output already exists, so an interrupted run can just be started again. To redo one scene, delete its `_final.shp` or pass `--forcerun infer` with that output as the target.
+Snakemake skips scenes whose output already exists, so an interrupted run can just be started again. To redo one scene, delete its `_final.shp` or pass `--forcerun process_scene` with that output as the target.
 
 ## Using the benchmarks
 
-The runtimes in `benchmarks/infer/` are the basis for estimating GPU-hours on Delta. To combine them:
+The runtimes in `benchmarks/process_scene/` are the basis for estimating GPU-hours on Delta. To combine them:
 
 ```bash
-cat benchmarks/infer/*.tsv | awk '$1!="s" {n++; s+=$1} END {printf "%d scenes, mean %.0f s\n", n, s/n}'
+cat benchmarks/process_scene/*.tsv | awk '$1!="s" {n++; s+=$1} END {printf "%d scenes, mean %.0f s\n", n, s/n}'
 ```

@@ -12,7 +12,7 @@
 #   tmux attach -t habitat
 #
 # Nothing needs to be activated first: snakemake comes from `uv tool install`
-# (~/.local/bin), and every job runs with the venv the build_env rule builds
+# (~/.local/bin), and every job runs with the venv the build_environment rule builds
 # at environment.path in the config.
 
 set -euo pipefail

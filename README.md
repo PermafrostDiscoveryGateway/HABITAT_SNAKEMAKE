@@ -4,7 +4,7 @@ Runs [HABITAT](https://github.com/PermafrostDiscoveryGateway/HABITAT) inference 
 
 **Documentation:** <https://PermafrostDiscoveryGateway.github.io/HABITAT_SNAKEMAKE/> (source in [`docs/`](docs/))
 
-HABITAT is included as a git submodule (`HABITAT/`) pinned to a specific commit, and is never edited here. Each scene becomes one `infer` job, which runs HABITAT's `full_pipeline.py` (clip → tile → infer → stitch → morphology → georeference → polygonize) and writes `<output_dir>/<scene>_final.shp`.
+HABITAT is included as a git submodule (`HABITAT/`) pinned to a specific commit, and is never edited here. Each scene becomes one `process_scene` job, which runs HABITAT's `full_pipeline.py` (clip → tile → infer → stitch → morphology → georeference → polygonize) and writes `<output_dir>/<scene>_final.shp`.
 
 ## Quick start
 
@@ -41,7 +41,7 @@ The paths are in `config/config.delta.yaml` and the account and partition in `pr
 
 ## Keeping HABITAT up to date
 
-This repo records one HABITAT commit, and the workflow always runs that commit. New commits to HABITAT have no effect here until the submodule is updated and the change is committed. That way, every result traces back to the exact HABITAT code that produced it; the commit is printed at the top of each `logs/infer/<scene>.log`.
+This repo records one HABITAT commit, and the workflow always runs that commit. New commits to HABITAT have no effect here until the submodule is updated and the change is committed. That way, every result traces back to the exact HABITAT code that produced it; the commit is printed at the top of each `logs/process_scene/<scene>.log`.
 
 To move to the latest HABITAT:
 

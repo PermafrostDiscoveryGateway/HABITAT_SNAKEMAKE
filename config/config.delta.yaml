@@ -17,7 +17,7 @@ habitat_dir: HABITAT
 update_habitat: true
 
 # Home directories on Delta are small; keep the venv under /projects. It is
-# built on the login node (build_env is a local rule) and used by every job.
+# built on the login node (build_environment is a local rule) and used by every job.
 # torch from PyPI includes its CUDA libraries, so no `module load` is needed.
 environment:
   path: /projects/biyc/habitat/venv
