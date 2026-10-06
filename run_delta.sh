@@ -5,6 +5,7 @@
 #   ./run_delta.sh                 # run config/config.delta.yaml
 #   ./run_delta.sh -n              # dry run; any arguments go to snakemake
 #   CONFIG=config/other.yaml ./run_delta.sh
+#   UPDATE_HABITAT=false ./run_delta.sh   # keep the pinned HABITAT commit
 #
 # A real run is started inside a tmux session (habitat), since snakemake has
 # to keep running on the login node until every Slurm job is done. Detach
@@ -18,6 +19,7 @@
 set -euo pipefail
 
 CONFIG="${CONFIG:-config/config.delta.yaml}"
+UPDATE_HABITAT="${UPDATE_HABITAT:-true}"
 
 # Repo root = the directory holding this script, wherever it's checked out.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,8 +53,12 @@ for arg in "$@"; do
     [[ "$arg" == "-n" || "$arg" == "--dry-run" || "$arg" == "--dryrun" ]] && DRY_RUN=true
 done
 
-# Already in tmux, or just a dry run: run here.
+# Already in tmux, or just a dry run: run here. Only a real run moves HABITAT
+# to the latest origin/main, so a dry run never changes the checkout.
 if [[ -n "${TMUX:-}" || "$DRY_RUN" == true ]]; then
+    if [[ "$DRY_RUN" == false && "$UPDATE_HABITAT" == true ]]; then
+        scripts/update_habitat.sh
+    fi
     echo "Running in $REPO_ROOT on $(hostname):"
     echo "  ${CMD[*]}"
     exec "${CMD[@]}"
@@ -68,6 +74,9 @@ echo "Starting tmux session $SESSION on $(hostname)."
 echo "Detach with Ctrl-b d; reattach later with: ssh $(hostname) then tmux attach -t $SESSION"
 # Re-run this script inside tmux ($TMUX is set there, so it runs snakemake
 # directly), then keep a shell open so the output stays readable afterwards.
+# The script is named by its full path: "$0" may be relative to a directory
+# other than the repo root, where tmux starts.
+SELF="$REPO_ROOT/$(basename "${BASH_SOURCE[0]}")"
 tmux new-session -d -s "$SESSION" -c "$REPO_ROOT" \
-    "$(printf '%q ' env CONFIG="$CONFIG" "$0" "$@"); exec bash"
+    "$(printf '%q ' env CONFIG="$CONFIG" UPDATE_HABITAT="$UPDATE_HABITAT" "$SELF" "$@"); exec bash"
 exec tmux attach -t "$SESSION"
