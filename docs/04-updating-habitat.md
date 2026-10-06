@@ -1,6 +1,14 @@
 # Updating HABITAT
 
-`HABITAT/` is a git submodule. This repository records one specific HABITAT commit, and the workflow always runs that commit. New commits pushed to HABITAT do **nothing** here until someone updates the submodule and commits the change. This is deliberate: every result can be traced to the exact HABITAT code that produced it. The commit is also printed at the top of each `logs/infer/<scene>.log`.
+`HABITAT/` is a git submodule. This repository records one specific HABITAT commit, so every result can be traced to the exact HABITAT code that produced it. The commit in use is also printed at the top of each `logs/infer/<scene>.log`.
+
+## Automatic update before each run
+
+With `update_habitat: true` (the default in every config), each `snakemake` invocation, dry runs included, first fast-forwards `HABITAT/` to the latest `origin/main` (or `habitat_branch`, if set). Snakemake prints `Updated HABITAT from <old> to <new>` when it moves. If the fetch fails (no network), `HABITAT/` has local changes, or its history has diverged, Snakemake prints a warning and the run continues on the current commit.
+
+After an automatic update, `git status` shows `HABITAT` as modified. Commit the new pointer (see [Testing and committing](#testing-and-committing)) so the repository records the commit the results came from.
+
+Set `update_habitat: false` in the config to always run the pinned commit. The rest of this page covers updating by hand.
 
 ## Which commit is in use
 

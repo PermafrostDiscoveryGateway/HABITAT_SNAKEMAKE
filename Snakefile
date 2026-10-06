@@ -3,7 +3,9 @@
 # One `infer` job per scene runs HABITAT's full_pipeline.py (clip -> tile ->
 # infer -> stitch -> morphology -> georeference -> polygonize) through
 # scripts/habitat_runner.py, which points HABITAT at the paths in the config
-# without editing the HABITAT submodule.
+# without editing the HABITAT submodule. Before anything runs, HABITAT is
+# fast-forwarded to the latest origin/main unless the config sets
+# update_habitat: false.
 #
 # Local smoke test with a synthetic scene and an untrained model:
 #   snakemake --configfile config/config.test.yaml --cores 2
@@ -45,6 +47,45 @@ SCENE_SUFFIX = config.get("scene_suffix", ".tif")
 OUTPUT_DIR = config["output_dir"]
 FOOTPRINT = config.get("footprint")
 MODEL = config.get("model", {})
+
+
+def update_habitat():
+    """Fast-forward HABITAT to the latest origin/<habitat_branch> before the run.
+
+    Runs at parse time, before HABITAT_COMMIT is read, so `infer` sees the new
+    commit. Any failure (no network, local changes, diverged history) only
+    warns, and the run continues on the current commit.
+    """
+    branch = config.get("habitat_branch", "main")
+
+    def git(*args):
+        return subprocess.run(["git", "-C", HABITAT_DIR, *args],
+                              capture_output=True, text=True)
+
+    if git("status", "--porcelain").stdout.strip():
+        logger.warning(f"{HABITAT_DIR} has local changes; not updating it.")
+        return
+    old = git("rev-parse", "--short", "HEAD").stdout.strip()
+    fetch = git("fetch", "--quiet", "origin", branch)
+    if fetch.returncode != 0:
+        logger.warning(f"Could not fetch {HABITAT_DIR} (origin/{branch}); "
+                       f"staying on {old}.\n{fetch.stderr.strip()}")
+        return
+    merge = git("merge", "--ff-only", "--quiet", "FETCH_HEAD")
+    if merge.returncode != 0:
+        logger.warning(f"Could not fast-forward {HABITAT_DIR} to origin/{branch}; "
+                       f"staying on {old}.\n{merge.stderr.strip()}")
+        return
+    new = git("rev-parse", "--short", "HEAD").stdout.strip()
+    if new != old:
+        logger.info(f"Updated {HABITAT_DIR} from {old} to {new} (origin/{branch}). "
+                    f"Commit the new submodule pointer to record it.")
+
+
+# Slurm jobs re-read this Snakefile on the compute node; only the main
+# snakemake process updates HABITAT.
+if config.get("update_habitat", True) and workflow.is_main_process:
+    update_habitat()
 
 # The HABITAT commit is a param of `infer`, so moving the submodule to a new
 # commit marks existing outputs as out of date (see docs/04-updating-habitat.md).
