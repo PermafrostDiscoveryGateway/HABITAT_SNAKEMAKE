@@ -1,0 +1,56 @@
+# NCSA Delta. Use with the Slurm profile, through run_delta.sh:
+#   ./run_delta.sh -n      # dry run
+#   ./run_delta.sh         # real run, inside tmux
+# (docs/05-running-on-delta.md)
+#
+# Layout on Delta (replace biyc if HABITAT runs under another allocation;
+# `accounts` on a login node lists them):
+#   /projects/biyc/habitat         this repo checkout and the venv
+#   /work/hdd/biyc/habitat/data    model weights and input scenes
+#   /work/hdd/biyc/habitat/results output shapefiles
+# Logs and benchmarks go to logs/ and benchmarks/ in the checkout. Keep both
+# directories group-writable so anyone on the allocation can run it.
+
+habitat_dir: HABITAT
+# Fast-forward HABITAT to the latest origin/main before each run
+# (docs/04-updating-habitat.md). Set to false to keep the pinned commit.
+update_habitat: true
+
+# Home directories on Delta are small; keep the venv under /projects. It is
+# built on the login node (build_env is a local rule) and used by every job.
+# torch from PyPI includes its CUDA libraries, so no `module load` is needed.
+environment:
+  path: /projects/biyc/habitat/venv
+  python: "3.10"
+
+# First run: the Yellowknife sample, for a GPU timing to compare with the
+# laptop. For real scenes, point scene_dir at them, set footprint, and
+# remove `scenes` (or list the ones to run).
+scene_dir: /work/hdd/biyc/habitat/data/sample/scenes
+scenes: [yellowknife_wv03_20230808]
+footprint: null
+no_data_value: 0
+
+weights: /work/hdd/biyc/habitat/data/model_weights/ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth
+weights_url: https://drive.usercontent.google.com/download?id=1RW9YmjTa0CiRUJ4-vQraZS2F0rehCA_f&export=download&confirm=t
+
+output_dir: /work/hdd/biyc/habitat/results/sample
+
+device: cuda
+# CPU cores per GPU job (Slurm --cpus-per-task). HABITAT's tiling and
+# post-processing run on the CPU; 16 is a quarter of a 4-GPU node.
+threads_per_scene: 16
+
+model:
+  size: 512
+  overlap: 0.5
+  classes: 3
+  encoder: resnet50
+
+maxar_open_samples:
+  yellowknife_wv03_20230808:
+    ms_url: https://maxar-opendata.s3.amazonaws.com/events/NWT-Canada-Aug-23/ard/11/102020031231/2023-08-08/104001008B463900-ms.tif
+    pan_url: https://maxar-opendata.s3.amazonaws.com/events/NWT-Canada-Aug-23/ard/11/102020031231/2023-08-08/104001008B463900-pan.tif
+    lon: -114.365
+    lat: 62.455
+    size_m: 2048

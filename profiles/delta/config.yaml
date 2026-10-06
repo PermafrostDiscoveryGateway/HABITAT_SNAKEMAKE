@@ -1,0 +1,34 @@
+# Snakemake profile for NCSA Delta: each `infer` job (one scene) is a 1-GPU
+# Slurm job; every other rule runs on the login node (see localrules in the
+# Snakefile). Needs snakemake >= 8 and snakemake-executor-plugin-slurm:
+#   uv tool install snakemake --with snakemake-executor-plugin-slurm
+# Use with config/config.delta.yaml (run_delta.sh passes both).
+
+executor: slurm
+
+# Max Slurm jobs queued/running at once.
+jobs: 8
+
+# Outputs are written on the compute node and checked from the login node.
+latency-wait: 60
+
+# A failed scene doesn't stop the others.
+keep-going: true
+
+default-resources:
+  # Delta GPU allocation the jobs are charged to.
+  slurm_account: "biyc-delta-gpu"
+  # A40s are charged at 0.5x an A100 and are plenty for one 512 px tile at a
+  # time. gpuA100x4 (1.0x) is the alternative.
+  slurm_partition: "gpuA40x4"
+  # Minutes. A 4,096 px scene takes a few minutes; a full Maxar scene can
+  # take hours, so raise this for those (max 2880).
+  runtime: 60
+  # HABITAT keeps every tile's prediction in memory until it stitches them
+  # (~3 MB per tile), so full scenes need tens of GB. 60 GB stays within a
+  # quarter of a node, matching 1 GPU and 16 cores.
+  mem_mb: 60000
+
+set-resources:
+  infer:
+    gpu: 1
