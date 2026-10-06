@@ -62,7 +62,8 @@ def update_habitat():
         return subprocess.run(["git", "-C", HABITAT_DIR, *args],
                               capture_output=True, text=True)
 
-    if git("status", "--porcelain").stdout.strip():
+    # Untracked files (HABITAT's own __pycache__/) don't block a fast-forward.
+    if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
         logger.warning(f"{HABITAT_DIR} has local changes; not updating it.")
         return
     old = git("rev-parse", "--short", "HEAD").stdout.strip()
