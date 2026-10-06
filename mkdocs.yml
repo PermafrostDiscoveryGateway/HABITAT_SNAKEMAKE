@@ -36,4 +36,5 @@ nav:
   - 2. Running Locally: 02-running-locally.md
   - 3. How It Works: 03-how-it-works.md
   - 4. Updating HABITAT: 04-updating-habitat.md
+  - 5. Running on Delta: 05-running-on-delta.md
   - Documentation Setup: DOCUMENTATION_SETUP.md

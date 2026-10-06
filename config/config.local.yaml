@@ -21,6 +21,9 @@ no_data_value: 0
 
 # Trained model (whole pickled torch model, as HABITAT's model_train.py saves it).
 weights: data/model_weights/ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth
+# Downloaded by the download_weights rule if missing (HABITAT_model_weights
+# Google Drive folder linked from HABITAT's README).
+weights_url: https://drive.usercontent.google.com/download?id=1RW9YmjTa0CiRUJ4-vQraZS2F0rehCA_f&export=download&confirm=t
 
 output_dir: results/local
 

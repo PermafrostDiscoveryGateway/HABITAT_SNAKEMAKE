@@ -1,6 +1,6 @@
 # HABITAT_SNAKEMAKE
 
-Runs [HABITAT](https://github.com/PermafrostDiscoveryGateway/HABITAT) inference with Snakemake. The goal is running it on NCSA Delta, but for now it runs locally.
+Runs [HABITAT](https://github.com/PermafrostDiscoveryGateway/HABITAT) inference with Snakemake, locally or on NCSA Delta (one Slurm GPU job per scene).
 
 **Documentation:** <https://PermafrostDiscoveryGateway.github.io/HABITAT_SNAKEMAKE/> (source in [`docs/`](docs/))
 
@@ -18,7 +18,7 @@ snakemake --configfile config/config.test.yaml --cores 2
 
 This smoke test runs the full pipeline on a synthetic scene with an untrained model.
 
-To run the real model on real imagery without licensed data, download the weights (see [Running locally](docs/02-running-locally.md#model-weights)) and run `snakemake --configfile config/config.sample.yaml --cores 8`. That builds a 2 km scene of downtown Yellowknife from Maxar Open Data.
+To run the real model on real imagery without licensed data, run `snakemake --configfile config/config.sample.yaml --cores 8`. That downloads the model weights and builds a 2 km scene of downtown Yellowknife from Maxar Open Data.
 
 For your own scenes, edit `config/config.local.yaml`, then run:
 
@@ -27,6 +27,17 @@ snakemake --configfile config/config.local.yaml --cores 4
 ```
 
 See [Running locally](docs/02-running-locally.md) for configuration and outputs.
+
+## On NCSA Delta
+
+On a Delta login node, after cloning to `/projects/biyc/habitat`:
+
+```bash
+./run_delta.sh -n   # dry run
+./run_delta.sh      # run inside tmux; each scene is a 1-GPU Slurm job on gpuA40x4
+```
+
+The paths are in `config/config.delta.yaml` and the account and partition in `profiles/delta/config.yaml`. See [Running on Delta](docs/05-running-on-delta.md).
 
 ## Keeping HABITAT up to date
 

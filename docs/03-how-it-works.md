@@ -9,7 +9,10 @@ HABITAT_SNAKEMAKE/
 ├── config/
 │   ├── config.test.yaml        # smoke test
 │   ├── config.sample.yaml      # Maxar Open Data scene of Yellowknife
-│   └── config.local.yaml       # real scenes, local machine
+│   ├── config.local.yaml       # real scenes, local machine
+│   └── config.delta.yaml       # NCSA Delta
+├── profiles/delta/config.yaml  # Slurm profile for Delta
+├── run_delta.sh                # Delta launcher (tmux + snakemake)
 ├── envs/requirements.txt       # HABITAT's Python environment
 ├── scripts/
 │   ├── habitat_runner.py       # runs HABITAT for one scene with our config
@@ -24,12 +27,13 @@ HABITAT_SNAKEMAKE/
 | Rule | Runs | Output |
 |---|---|---|
 | `build_env` | Once, and again when `envs/requirements.txt` changes | `.venv-habitat/` |
+| `download_weights` | Only when `weights` is missing and the config gives a `weights_url` | The model weights |
 | `make_test_data` | Only when a config asks for the files under `test_data/` | Synthetic scene, footprint, weights |
 | `fetch_maxar_sample` | Only for scenes listed under `maxar_open_samples` | A pansharpened Maxar Open Data scene |
 | `infer` | Once per scene | `<output_dir>/<scene>_final.shp` |
 | `all` | Default target | All scenes' shapefiles |
 
-`infer` replaces HABITAT's `run_workflow.py`, which wrote and `sbatch`-ed one job file per scene. Snakemake handles that now, along with throttling, retries and skipping finished scenes.
+`infer` replaces HABITAT's `run_workflow.py`, which wrote and `sbatch`-ed one job file per scene. Snakemake handles that now, along with throttling, retries and skipping finished scenes. Every rule except `infer` is a `localrule`, so on Delta only `infer` is submitted to Slurm ([Running on Delta](05-running-on-delta.md)).
 
 ## Getting the config into HABITAT
 

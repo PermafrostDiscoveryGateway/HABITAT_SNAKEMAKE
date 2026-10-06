@@ -26,7 +26,7 @@ The result is `results/test/synthetic_scene_final.shp`. Because the model is unt
 
 ## Model weights
 
-The trained operational model is in the public [HABITAT_model_weights](https://drive.google.com/drive/folders/1wnSIv_oDZlFMHtophpVCiaKSC97uvqEQ) Google Drive folder that HABITAT's README links to. Download `ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth` (~187 MB) to `data/model_weights/`:
+The trained operational model is `ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth` (~187 MB), in the public [HABITAT_model_weights](https://drive.google.com/drive/folders/1wnSIv_oDZlFMHtophpVCiaKSC97uvqEQ) Google Drive folder that HABITAT's README links to. The sample, local and Delta configs set `weights_url`, so the `download_weights` rule fetches it on the first run. To download it by hand instead:
 
 ```bash
 mkdir -p data/model_weights

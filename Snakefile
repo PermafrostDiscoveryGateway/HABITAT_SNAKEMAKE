@@ -11,6 +11,9 @@
 # Local run on real data (edit the paths first):
 #   snakemake --configfile config/config.local.yaml --cores 2
 #
+# On NCSA Delta, each `infer` job is a 1-GPU Slurm job (docs/05-running-on-delta.md):
+#   ./run_delta.sh
+#
 # Dry run: add -n.
 
 import os
@@ -18,6 +21,15 @@ import subprocess
 
 if not config:
     raise WorkflowError("Pass a config, e.g. --configfile config/config.test.yaml")
+
+# With a cluster executor these run where snakemake runs (the Delta login
+# node, which has internet access); only `infer` is submitted as a job.
+localrules:
+    all,
+    build_env,
+    download_weights,
+    make_test_data,
+    fetch_maxar_sample,
 
 
 wildcard_constraints:
@@ -69,6 +81,28 @@ rule build_env:
         (uv venv --allow-existing --python {params.python} {params.env} &&
          uv pip install --python {params.env}/bin/python -r {input}) > {log} 2>&1
         """
+
+
+# Model weights, downloaded when the config gives a weights_url and the file
+# isn't already at `weights`.
+rule download_weights:
+    output:
+        config["weights"],
+    params:
+        url=config.get("weights_url", ""),
+    log:
+        "logs/download_weights.log",
+    shell:
+        """
+        if [ -z "{params.url}" ]; then
+            echo "{output} is missing and the config has no weights_url" > {log}; exit 1
+        fi
+        curl -fsSL -o {output:q} "{params.url}" 2> {log}
+        """
+
+
+# The smoke test's untrained model comes from make_test_data, not a download.
+ruleorder: make_test_data > download_weights
 
 
 # Synthetic inputs referenced by config/config.test.yaml.

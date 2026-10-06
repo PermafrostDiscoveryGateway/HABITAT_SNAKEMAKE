@@ -1,6 +1,6 @@
 # HABITAT_SNAKEMAKE
 
-Runs [HABITAT](https://github.com/PermafrostDiscoveryGateway/HABITAT) inference (mapping Arctic infrastructure from sub-meter Maxar imagery) as a [Snakemake](https://snakemake.readthedocs.io/) workflow. It runs locally now, and is being set up to run on [NCSA Delta](https://docs.ncsa.illinois.edu/systems/delta/en/latest/index.html).
+Runs [HABITAT](https://github.com/PermafrostDiscoveryGateway/HABITAT) inference (mapping Arctic infrastructure from sub-meter Maxar imagery) as a [Snakemake](https://snakemake.readthedocs.io/) workflow. It runs locally and on [NCSA Delta](https://docs.ncsa.illinois.edu/systems/delta/en/latest/index.html).
 
 HABITAT is included unmodified as a git submodule. This repository adds only the orchestration around it: the workflow, its configs, the Python environment and these docs.
 
@@ -20,3 +20,4 @@ This runs the full pipeline on a synthetic scene with an untrained model, as a c
 2. [Running locally](02-running-locally.md): the smoke test, real scenes, configuration, outputs
 3. [How it works](03-how-it-works.md): the workflow rules and how the config gets into HABITAT
 4. [Updating HABITAT](04-updating-habitat.md): moving to a newer HABITAT commit
+5. [Running on Delta](05-running-on-delta.md): Slurm GPU jobs on NCSA Delta
