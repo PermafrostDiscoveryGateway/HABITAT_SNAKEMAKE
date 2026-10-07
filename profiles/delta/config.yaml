@@ -9,6 +9,10 @@ executor: slurm
 # Max Slurm jobs queued/running at once.
 jobs: 8
 
+# Rules that run on the login node (downloads, env build) at once. A whole
+# Maxar tile takes ~8 GB to fetch and pansharpen, and login nodes are shared.
+local-cores: 2
+
 # Outputs are written on the compute node and checked from the login node.
 latency-wait: 60
 
@@ -32,3 +36,5 @@ default-resources:
 set-resources:
   process_scene:
     gpu: 1
+    # Whole ~5 km Maxar tiles (10,600 px) are ~7x a 4,096 px scene.
+    runtime: 180

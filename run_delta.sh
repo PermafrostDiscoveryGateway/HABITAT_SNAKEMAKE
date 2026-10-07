@@ -5,6 +5,8 @@
 #   ./run_delta.sh                 # run config/config.delta.yaml
 #   ./run_delta.sh -n              # dry run; any arguments go to snakemake
 #   CONFIG=config/other.yaml ./run_delta.sh
+#   CONFIG="config/config.delta.yaml config/tiles.nwt.yaml" ./run_delta.sh
+#                                  # several config files, later ones win
 #
 # A real run is started inside a tmux session (habitat), since snakemake has
 # to keep running on the login node until every Slurm job is done. Detach
@@ -44,7 +46,8 @@ if ! command -v snakemake >/dev/null; then
     uv tool install snakemake --with snakemake-executor-plugin-slurm
 fi
 
-CMD=(snakemake --configfile "$CONFIG" --profile profiles/delta "$@")
+read -ra CONFIGS <<< "$CONFIG"
+CMD=(snakemake --configfile "${CONFIGS[@]}" --profile profiles/delta "$@")
 
 DRY_RUN=false
 for arg in "$@"; do

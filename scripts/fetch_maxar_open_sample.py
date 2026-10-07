@@ -64,10 +64,10 @@ def main():
 
         # Both read straight to the output grid; only the needed bytes are fetched.
         pan = pan_src.read(1, window=from_bounds(*bounds, pan_src.transform),
-                           out_shape=(n, n), resampling=Resampling.average).astype("float64")
+                           out_shape=(n, n), resampling=Resampling.average).astype("float32")
         ms = ms_src.read(WV_8BAND_BGRN, window=from_bounds(*bounds, ms_src.transform),
                          out_shape=(len(WV_8BAND_BGRN), n, n),
-                         resampling=Resampling.bilinear).astype("float64")
+                         resampling=Resampling.bilinear).astype("float32")
 
     valid = (pan > 0) & np.all(ms > 0, axis=0)
     if valid.mean() < 0.5:
