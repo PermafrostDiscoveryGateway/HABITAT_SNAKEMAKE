@@ -4,9 +4,6 @@
 #   snakemake --configfile config/config.test.yaml --cores 2
 
 habitat_dir: HABITAT
-# Fast-forward HABITAT to the latest origin/main before each run
-# (docs/04-updating-habitat.md). Set to false to keep the pinned commit.
-update_habitat: true
 
 environment:
   path: .venv-habitat

@@ -8,9 +8,8 @@
 # process_scene runs all of steps 3-8 in one job, because HABITAT's
 # full_pipeline.py passes predictions between them in memory. It runs through
 # scripts/habitat_runner.py, which points HABITAT at the paths in the config
-# without editing the HABITAT submodule. Before anything runs, HABITAT is
-# fast-forwarded to the latest origin/main unless the config sets
-# update_habitat: false.
+# without editing the HABITAT submodule. scripts/update_habitat.sh moves
+# HABITAT to the latest origin/main (run_delta.sh calls it before each run).
 #
 # Local smoke test with a synthetic scene and an untrained model:
 #   snakemake --configfile config/config.test.yaml --cores 2
@@ -54,55 +53,28 @@ FOOTPRINT = config.get("footprint")
 MODEL = config.get("model", {})
 
 
-def update_habitat():
-    """Fast-forward HABITAT to the latest origin/<habitat_branch> before the run.
-
-    Runs at parse time, before HABITAT_COMMIT is read, so `process_scene` sees the new
-    commit. Any failure (no network, local changes, diverged history) only
-    warns, and the run continues on the current commit.
-    """
-    branch = config.get("habitat_branch", "main")
-
-    def git(*args):
-        return subprocess.run(["git", "-C", HABITAT_DIR, *args],
-                              capture_output=True, text=True)
-
-    # Untracked files (HABITAT's own __pycache__/) don't block a fast-forward.
-    if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
-        logger.warning(f"{HABITAT_DIR} has local changes; not updating it.")
-        return
-    old = git("rev-parse", "--short", "HEAD").stdout.strip()
-    fetch = git("fetch", "--quiet", "origin", branch)
-    if fetch.returncode != 0:
-        logger.warning(f"Could not fetch {HABITAT_DIR} (origin/{branch}); "
-                       f"staying on {old}.\n{fetch.stderr.strip()}")
-        return
-    merge = git("merge", "--ff-only", "--quiet", "FETCH_HEAD")
-    if merge.returncode != 0:
-        logger.warning(f"Could not fast-forward {HABITAT_DIR} to origin/{branch}; "
-                       f"staying on {old}.\n{merge.stderr.strip()}")
-        return
-    new = git("rev-parse", "--short", "HEAD").stdout.strip()
-    if new != old:
-        logger.info(f"Updated {HABITAT_DIR} from {old} to {new} (origin/{branch}). "
-                    f"Commit the new submodule pointer to record it.")
-
-
-# Slurm jobs re-read this Snakefile on the compute node; only the main
-# snakemake process updates HABITAT.
-if config.get("update_habitat", True) and workflow.is_main_process:
-    update_habitat()
-
 # The HABITAT commit is a param of `process_scene`, so moving the submodule to a new
 # commit marks existing outputs as out of date (see docs/04-updating-habitat.md).
-HABITAT_COMMIT = subprocess.run(["git", "-C", HABITAT_DIR, "rev-parse", "HEAD"],
-                                capture_output=True, text=True).stdout.strip() or "unknown"
+# The checkout is shared by everyone on the allocation, so git's ownership
+# check is waived for it; otherwise anyone but its owner reads no commit and
+# every scene reruns.
+def habitat_commit():
+    habitat = os.path.abspath(HABITAT_DIR)
+    git = subprocess.run(["git", "-c", f"safe.directory={habitat}", "-C", habitat,
+                          "rev-parse", "HEAD"], capture_output=True, text=True)
+    if git.returncode != 0:
+        raise WorkflowError(f"Could not read the HABITAT commit in {habitat}:\n"
+                            f"{git.stderr.strip()}")
+    return git.stdout.strip()
+
+
+HABITAT_COMMIT = habitat_commit()
 
 
 def scenes():
     """Scenes from the config, or every *SCENE_SUFFIX file in scene_dir."""
     if config.get("scenes"):
-        return [os.path.splitext(s)[0] if s.endswith(SCENE_SUFFIX) else s
+        return [s[:-len(SCENE_SUFFIX)] if s.endswith(SCENE_SUFFIX) else s
                 for s in config["scenes"]]
     return glob_wildcards(os.path.join(SCENE_DIR, "{scene}" + SCENE_SUFFIX)).scene
 

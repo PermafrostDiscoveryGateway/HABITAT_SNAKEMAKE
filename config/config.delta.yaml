@@ -12,9 +12,6 @@
 # directories group-writable so anyone on the allocation can run it.
 
 habitat_dir: HABITAT
-# Fast-forward HABITAT to the latest origin/main before each run
-# (docs/04-updating-habitat.md). Set to false to keep the pinned commit.
-update_habitat: true
 
 # Home directories on Delta are small; keep the venv under /projects. It is
 # built on the login node (build_environment is a local rule) and used by every job.
