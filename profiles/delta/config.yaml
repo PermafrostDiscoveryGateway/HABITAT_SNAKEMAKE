@@ -25,8 +25,7 @@ default-resources:
   # A40s are charged at 0.5x an A100 and are plenty for one 512 px tile at a
   # time. gpuA100x4 (1.0x) is the alternative.
   slurm_partition: "gpuA40x4"
-  # Minutes. A 4,096 px scene takes a few minutes; a full Maxar scene can
-  # take hours, so raise this for those (max 2880).
+  # Minutes (max 2880). Raise for scenes much larger than a 5 km tile.
   runtime: 60
   # HABITAT keeps every tile's prediction in memory until it stitches them
   # (~3 MB per tile), so full scenes need tens of GB. 60 GB stays within a
@@ -36,5 +35,6 @@ default-resources:
 set-resources:
   process_scene:
     gpu: 1
-    # Whole ~5 km Maxar tiles (10,600 px) are ~7x a 4,096 px scene.
-    runtime: 180
+    # Minutes. Whole ~5 km Maxar tiles (10,600 px) took 0.5-4 min on an A40
+    # (2026-10-08); short limits fit into backfill gaps and start sooner.
+    runtime: 20
