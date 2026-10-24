@@ -17,8 +17,12 @@
 # Local run on real data (edit the paths first):
 #   snakemake --configfile config/config.local.yaml --cores 2
 #
-# On NCSA Delta, each `process_scene` job is a 1-GPU Slurm job (docs/05-running-on-delta.md):
+# On NCSA Delta, each `process_scene` job is a 1-GPU Slurm job, and the
+# environment build and model download are small CPU jobs (docs/05-running-on-delta.md):
 #   ./run_delta.sh
+#
+# Every rule writes a Snakemake benchmark file into benchmarks_dir;
+# scripts/benchmark_table.py joins them with Slurm's accounting (GPU included).
 #
 # Dry run: add -n.
 
@@ -29,11 +33,11 @@ if not config:
     raise WorkflowError("Pass a config, e.g. --configfile config/config.test.yaml")
 
 # With a cluster executor these run where snakemake runs (the Delta login
-# node, which has internet access); only `process_scene` is submitted as a job.
+# node, which has internet access). Every other rule is submitted as a job; the
+# Slurm settings for each (account, partition, memory, time) are in the
+# profile, profiles/delta/config.yaml.
 localrules:
     all,
-    build_environment,
-    download_model,
     make_test_data,
     download_imagery,
 
@@ -51,6 +55,9 @@ SCENE_SUFFIX = config.get("scene_suffix", ".tif")
 OUTPUT_DIR = config["output_dir"]
 FOOTPRINT = config.get("footprint")
 MODEL = config.get("model", {})
+# Where the benchmark files go: benchmarks/ in the checkout unless the config
+# says otherwise, so a config can keep its own and runs can be compared.
+BENCH_DIR = config.get("benchmarks_dir") or "benchmarks"
 
 
 # The HABITAT commit is a param of `process_scene`, so moving the submodule to a new
@@ -96,6 +103,8 @@ rule build_environment:
         python=config["environment"].get("python", "3.10"),
     log:
         "logs/build_environment.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "build_environment.tsv")
     shell:
         """
         (uv venv --allow-existing --python {params.python} {params.env} &&
@@ -112,6 +121,8 @@ rule download_model:
         url=config.get("weights_url", ""),
     log:
         "logs/download_model.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "download_model.tsv")
     shell:
         """
         if [ -z "{params.url}" ]; then
@@ -135,6 +146,8 @@ rule make_test_data:
         weights="test_data/weights/untrained_unetpp.pth",
     log:
         "logs/make_test_data.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "make_test_data.tsv")
     shell:
         """
         {ENV_PYTHON} scripts/make_test_data.py --scene {output.scene} \
@@ -158,6 +171,8 @@ rule download_imagery:
         s=lambda wc: SAMPLES[wc.sample],
     log:
         "logs/download_imagery/{sample}.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "download_imagery", "{sample}.tsv")
     shell:
         """
         {ENV_PYTHON} scripts/fetch_maxar_open_sample.py \
@@ -189,7 +204,7 @@ rule process_scene:
     log:
         "logs/process_scene/{scene}.log",
     benchmark:
-        "benchmarks/process_scene/{scene}.tsv"
+        os.path.join(BENCH_DIR, "process_scene", "{scene}.tsv")
     threads: config.get("threads_per_scene", 1)
     shell:
         """

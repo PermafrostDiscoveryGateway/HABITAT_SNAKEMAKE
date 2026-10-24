@@ -1,6 +1,6 @@
 # Running on Delta
 
-On [NCSA Delta](https://docs.ncsa.illinois.edu/systems/delta/en/latest/index.html), Snakemake runs on a login node and submits each scene's `process_scene` job to Slurm as a **1-GPU job**. Everything else runs on the login node, which has internet access: building the environment, downloading the weights, and fetching the sample scene.
+On [NCSA Delta](https://docs.ncsa.illinois.edu/systems/delta/en/latest/index.html), Snakemake runs on a login node and submits each scene's `process_scene` job to Slurm as a **1-GPU job**. Building the environment and downloading the weights are small **CPU jobs** (`biyc-delta-cpu`, partition `cpu`). Fetching the sample scenes (`download_imagery`) still runs on the login node, which has internet access.
 
 | File | What it sets |
 |---|---|
@@ -15,11 +15,12 @@ On [NCSA Delta](https://docs.ncsa.illinois.edu/systems/delta/en/latest/index.htm
 | `/projects/biyc/habitat` | This repo checkout and the venv (`venv/`) |
 | `/work/hdd/biyc/habitat/data` | Model weights and input scenes |
 | `/work/hdd/biyc/habitat/results` | Output shapefiles |
+| `/work/hdd/biyc/habitat/benchmarks` | Benchmark files, one folder per config (`benchmarks_dir`) |
 
-Logs (`logs/`) and benchmarks (`benchmarks/`) go in the checkout.
+Logs (`logs/`) go in the checkout; benchmarks go to `benchmarks_dir` in the config.
 
 !!! note "Allocation name"
-    The paths and the Slurm account (`biyc-delta-gpu`) assume HABITAT runs under the **biyc** allocation, like water_timeseries. On a login node, `accounts` lists your allocations. If the GPU allocation has a different name, change `slurm_account` in `profiles/delta/config.yaml` and the `/projects/...` and `/work/hdd/...` paths in `config/config.delta.yaml`.
+    The paths and the Slurm accounts (`biyc-delta-gpu`, and `biyc-delta-cpu` for the CPU jobs) assume HABITAT runs under the **biyc** allocation, like water_timeseries. On a login node, `accounts` lists your allocations. If the GPU allocation has a different name, change the `slurm_account` entries in `profiles/delta/config.yaml` and the `/projects/...` and `/work/hdd/...` paths in `config/config.delta.yaml`.
 
 ## First run
 
@@ -47,8 +48,8 @@ The first time, this installs `uv` and Snakemake (with the Slurm executor plugin
 
 | Job | Where | What |
 |---|---|---|
-| `build_environment` | login node | Builds the venv. A few minutes; torch with its CUDA libraries is several GB. |
-| `download_model` | login node | The ~187 MB model from HABITAT's Google Drive folder |
+| `build_environment` | Slurm, CPU | Builds the venv. A few minutes; torch with its CUDA libraries is several GB. |
+| `download_model` | Slurm, CPU | The ~187 MB model from HABITAT's Google Drive folder |
 | `download_imagery` | login node | The Yellowknife sample scene (~120 MB read, 130 MB written) |
 | `process_scene` | Slurm, 1 GPU | HABITAT on the scene |
 
@@ -73,8 +74,42 @@ squeue -u $USER
 ### 4. Results
 
 - **Polygons:** `/work/hdd/biyc/habitat/results/sample/yellowknife_wv03_20230808_final.shp`. They should match the laptop run.
-- **GPU timing:** `benchmarks/process_scene/yellowknife_wv03_20230808.tsv`. Compare it with the ~271 s on a laptop CPU.
+- **Timing, memory and GPU use:** `/work/hdd/biyc/habitat/benchmarks/sample/process_scene/yellowknife_wv03_20230808.tsv` for the time (compare it with the ~271 s on a laptop CPU), and `python3 scripts/benchmark_table.py --config config/config.delta.yaml` for the time, peak memory and GPU use of every job (see [Benchmarks and job statistics](#benchmarks-and-job-statistics)). Use them to set `runtime` and `mem_mb` in the profile.
 - **Run log:** `logs/process_scene/yellowknife_wv03_20230808.log`. Slurm's own logs are under `.snakemake/slurm_logs/`.
+
+## Benchmarks and job statistics
+
+Three sources describe how a job went, and they don't measure the same thing:
+
+| Source | What it has | Caution |
+|---|---|---|
+| Snakemake's benchmark file, one per job; every step has one | Wall time, CPU time and load, a memory figure, file I/O | It samples, so its memory figure can miss short peaks (in darts-nextgen's runs on Delta it was 4% to 20% below `sacct`). It has no GPU column, and the format is fixed by Snakemake. |
+| Slurm's accounting, `sacct` | State, elapsed time, peak host memory (`MaxRSS`, in KiB), CPU time, disk I/O, and on Delta the GPU: `gres/gpumem` (GPU memory) and `gres/gpuutil` (GPU utilisation) in the `TRESUsageInMax` field | The best source for peak memory; use it to set `mem_mb`. Slurm's documentation does not say whether `gpuutil` is an average or a peak, so compare runs of the same kind with it, but don't read it as a precise average. Local rules (`download_imagery`) are not Slurm jobs and have no record. |
+| `scripts/benchmark_table.py` | Both of the above in one table: one row per Slurm job (every attempt, failed ones included), with the benchmark's wall time, CPU load and memory next to Slurm's memory, GPU and disk numbers; steps that ran on the login node are listed with state `local` | Run it on Delta, from the repository folder, after a run. It finds the job IDs from `.snakemake/slurm_logs/` and from Snakemake's own run logs in `.snakemake/log/` (the Slurm plugin deletes the log file of a job that succeeded, and every log after 10 days, but the run logs still name them). `sacct` itself keeps records for longer. |
+
+Every step writes its benchmark file into `benchmarks_dir`. `config/config.delta.yaml` sets it to `/work/hdd/biyc/habitat/benchmarks/sample`; give each new config or region its own folder, so runs can be compared by comparing folders. Without the setting, the folder is `benchmarks/` in the checkout, where earlier versions wrote them; `--benchmarks benchmarks` reads those.
+
+| Step | Benchmark file |
+|---|---|
+| `build_environment` | `<benchmarks_dir>/build_environment.tsv` |
+| `download_model` | `<benchmarks_dir>/download_model.tsv` |
+| `download_imagery` | `<benchmarks_dir>/download_imagery/<scene>.tsv` |
+| `make_test_data` | `<benchmarks_dir>/make_test_data.tsv` |
+| `process_scene` | `<benchmarks_dir>/process_scene/<scene>.tsv` |
+
+Snakemake writes each file when its job succeeds and overwrites it on a rerun, so a failed attempt leaves no benchmark; the table still lists it, from Slurm.
+
+```bash
+python3 scripts/benchmark_table.py --config config/config.delta.yaml
+```
+
+`--config` tells it which benchmark folder to read (use the config the run used). By default every attempt is listed, including failed and cancelled ones (an out-of-memory kill shows as `OUT_OF_MEMORY`); `--completed` lists only the jobs that finished, and `--rules process_scene` limits it to some rules. It prints the table and writes it to `<benchmarks_dir>/summary.tsv`. To check one job by hand:
+
+```bash
+sacct -j <jobid> --format=JobID,State,Elapsed,MaxRSS,TRESUsageInMax%110
+```
+
+The GPU's use over time is not recorded; if that is needed, a sampler would have to run inside the job.
 
 ## Resources and cost
 
@@ -86,7 +121,8 @@ Set in `profiles/delta/config.yaml`:
 | `gpu` (process_scene) | 1 | HABITAT uses a single GPU |
 | `threads_per_scene` (config) | 16 | Slurm `--cpus-per-task`. Tiling and post-processing run on the CPU. 16 is a quarter of a 4-GPU node. |
 | `mem_mb` | 60000 | HABITAT holds every tile's prediction in memory (~3 MB per tile) until stitching, so full scenes need tens of GB |
-| `runtime` | 60 min | Plenty for the sample. Raise it for full scenes (Delta's maximum is 48 h). |
+| `runtime` | 20 min (process_scene) | Whole ~5 km Maxar tiles took 0.5 to 4 minutes on an A40. Raise it for larger scenes (Delta's maximum is 48 h). |
+| `build_environment`, `download_model` | `cpu` partition, `biyc-delta-cpu` | Small CPU jobs, so they don't use GPU hours. Their memory and time limits are guesses until measured: set them from `benchmark_table.py` after the first run. |
 | `jobs` | 8 | Maximum scenes queued or running at once |
 
 To check how much allocation is left:
@@ -109,7 +145,8 @@ output_dir: /work/hdd/biyc/habitat/results/<region>
 ```
 
 Then:
-- set `runtime` in the profile from the sample's timing, scaled to the scene size, with some headroom;
+- set `runtime` and `mem_mb` in the profile from the sample's numbers (`python3 scripts/benchmark_table.py --config config/config.delta.yaml`), scaled to the scene size, with some headroom;
+- set `benchmarks_dir` to a new folder for the region, so its numbers are kept apart from the sample's;
 - start with a dry run (`-n`) and one or two scenes, then run the rest.
 
 Snakemake skips finished scenes, and `keep-going` means one failed scene doesn't stop the others. If a run is interrupted, start it again.

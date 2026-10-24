@@ -69,6 +69,7 @@ no_data_value: 0                            # used only when footprint is null
 
 weights: data/model_weights/<name>.pth      # pickled torch model from HABITAT's model_train.py
 output_dir: results/local
+# benchmarks_dir: benchmarks      # optional; where each step's timing goes (default benchmarks/)
 
 device: cpu          # or mps on Apple silicon
 threads_per_scene: 4
@@ -97,7 +98,8 @@ snakemake --configfile config/config.local.yaml --cores 4
 |---|---|
 | `<output_dir>/<scene>_final.shp` (+ `.dbf`, `.shx`, `.prj`, `.cpg`) | Infrastructure polygons with a `class` attribute |
 | `logs/process_scene/<scene>.log` | HABITAT's output for the scene, starting with the HABITAT commit used |
-| `benchmarks/process_scene/<scene>.tsv` | Runtime for the scene (`s` column, in seconds) |
+| `<benchmarks_dir>/process_scene/<scene>.tsv` | Runtime for the scene (`s` column, in seconds) |
+| `<benchmarks_dir>/<rule>.tsv`, `<benchmarks_dir>/<rule>/<scene>.tsv` | The same for every other step: `build_environment`, `download_model`, `make_test_data`, `download_imagery` |
 | `logs/build_environment.log` | Environment build output |
 
 HABITAT deletes its intermediate rasters (clipped, stitched, morphed, georeferenced) once a scene is done.
@@ -106,7 +108,15 @@ Snakemake skips scenes whose output already exists, so an interrupted run can ju
 
 ## Using the benchmarks
 
-The runtimes in `benchmarks/process_scene/` are the basis for estimating GPU-hours on Delta. To combine them:
+Every step writes a Snakemake benchmark file into `benchmarks_dir` (default `benchmarks/` in the checkout). The `s` column is the wall time in seconds. The memory, I/O and CPU-load columns are `NA` on macOS, so don't rely on them locally; on Delta, Slurm's accounting is the better source anyway ([Benchmarks and job statistics](05-running-on-delta.md#benchmarks-and-job-statistics)).
+
+To see every step in one table (it also writes `<benchmarks_dir>/summary.tsv`):
+
+```bash
+python3 scripts/benchmark_table.py --config config/config.sample.yaml
+```
+
+The runtimes in `<benchmarks_dir>/process_scene/` are the basis for estimating GPU-hours on Delta. To combine them:
 
 ```bash
 cat benchmarks/process_scene/*.tsv | awk '$1!="s" {n++; s+=$1} END {printf "%d scenes, mean %.0f s\n", n, s/n}'

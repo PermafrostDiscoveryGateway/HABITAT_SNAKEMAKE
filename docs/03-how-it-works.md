@@ -17,7 +17,8 @@ HABITAT_SNAKEMAKE/
 ├── scripts/
 │   ├── habitat_runner.py       # runs HABITAT for one scene with our config
 │   ├── make_test_data.py       # synthetic inputs for the smoke test
-│   └── fetch_maxar_open_sample.py  # sample scene from Maxar Open Data
+│   ├── fetch_maxar_open_sample.py  # sample scene from Maxar Open Data
+│   └── benchmark_table.py      # time, memory and GPU use of every step (sacct on Delta)
 ├── docs/                       # this site
 └── mkdocs.yml
 ```
@@ -33,7 +34,7 @@ HABITAT_SNAKEMAKE/
 | `process_scene` | Once per scene | `<output_dir>/<scene>_final.shp` |
 | `all` | Default target | All scenes' shapefiles |
 
-`process_scene` replaces HABITAT's `run_workflow.py`, which wrote and `sbatch`-ed one job file per scene. Snakemake handles that now, along with throttling, retries and skipping finished scenes. Every rule except `process_scene` is a `localrule`, so on Delta only `process_scene` is submitted to Slurm ([Running on Delta](05-running-on-delta.md)).
+`process_scene` replaces HABITAT's `run_workflow.py`, which wrote and `sbatch`-ed one job file per scene. Snakemake handles that now, along with throttling, retries and skipping finished scenes. On Delta, `process_scene` is a 1-GPU Slurm job and `build_environment` and `download_model` are small CPU jobs, so Slurm's accounting covers them too. `download_imagery` and `make_test_data` are `localrule`s that run on the login node ([Running on Delta](05-running-on-delta.md)). Every rule writes a benchmark file into `benchmarks_dir`.
 
 ## Getting the config into HABITAT
 

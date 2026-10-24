@@ -8,13 +8,14 @@
 #   /projects/biyc/habitat         this repo checkout and the venv
 #   /work/hdd/biyc/habitat/data    model weights and input scenes
 #   /work/hdd/biyc/habitat/results output shapefiles
-# Logs and benchmarks go to logs/ and benchmarks/ in the checkout. Keep both
-# directories group-writable so anyone on the allocation can run it.
+#   /work/hdd/biyc/habitat/benchmarks/<name>  benchmark files (benchmarks_dir)
+# Logs go to logs/ in the checkout. Keep it group-writable so anyone on the
+# allocation can run it.
 
 habitat_dir: HABITAT
 
 # Home directories on Delta are small; keep the venv under /projects. It is
-# built on the login node (build_environment is a local rule) and used by every job.
+# built by the build_environment job (a CPU Slurm job) and used by every job.
 # torch from PyPI includes its CUDA libraries, so no `module load` is needed.
 environment:
   path: /projects/biyc/habitat/venv
@@ -34,6 +35,13 @@ weights_url: https://drive.usercontent.google.com/download?id=1RW9YmjTa0CiRUJ4-v
 output_dir: /work/hdd/biyc/habitat/results/sample
 
 device: cuda
+# Time, CPU and memory of each step, one file per job. Join them with Slurm's
+# accounting (peak memory, GPU memory and utilisation) with
+#   python3 scripts/benchmark_table.py --config config/config.delta.yaml
+# One folder per config/region, so runs can be compared; without this line it
+# is benchmarks/ in the checkout.
+benchmarks_dir: /work/hdd/biyc/habitat/benchmarks/sample
+
 # CPU cores per GPU job (Slurm --cpus-per-task). HABITAT's tiling and
 # post-processing run on the CPU; 16 is a quarter of a 4-GPU node.
 threads_per_scene: 16
