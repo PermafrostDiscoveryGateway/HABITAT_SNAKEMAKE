@@ -40,32 +40,38 @@ default-resources:
 set-resources:
   process_scene:
     gpu: 1
-    # Minutes. Whole ~5 km Maxar tiles (10,600 px) took 0.5-4 min on an A40
-    # (2026-10-08); short limits fit into backfill gaps and start sooner.
-    # Check each new run's time, peak memory and GPU use with
-    # scripts/benchmark_table.py (or `sacct -j <jobid> --format=Elapsed,MaxRSS`).
-    runtime: 20
+    # Minutes. sacct for the 22 NWT tiles and the Yellowknife sample (whole
+    # ~5 km Maxar tiles at most, 10,600 px): 29 to 310 s elapsed, peak host
+    # memory 1.7 to 9.3 GiB, peak GPU memory up to 1.1 GiB, under one CPU core
+    # on average. Short limits fit into backfill gaps and start sooner; raise
+    # it for larger scenes. mem_mb stays at the default: a 1-GPU job is charged
+    # as a quarter node anyway, so asking for less memory saves nothing.
+    # Check each new run with scripts/benchmark_table.py (or
+    # `sacct -j <jobid> --format=Elapsed,MaxRSS,TRESUsageInMax%110`).
+    runtime: 10
 
   # CPU jobs. These use the CPU allocation and the cpu partition, not the GPU
-  # defaults above. Not measured on Delta yet as Slurm jobs: set them from
-  # `python3 scripts/benchmark_table.py --config config/config.delta.yaml`
-  # after their first runs. sacct reports MaxRSS in KiB, and Delta charges CPU
-  # jobs by cores or memory share of the node, whichever is larger.
+  # defaults above. Measured on Delta with
+  # `python3 scripts/benchmark_table.py --config config/config.delta.yaml`;
+  # sacct reports MaxRSS in KiB, and Delta charges CPU jobs by cores or memory
+  # share of the node, whichever is larger.
   #
   # The venv: `uv pip install` of a few GB of wheels (torch with its CUDA
-  # libraries). darts-nextgen's similar build took 36 s with a warm uv cache
-  # and 0.3 GiB; a cold cache takes longer, so the limits are generous.
+  # libraries). With the venv already in place it took 15 s and 0.2 GiB
+  # (2026-10-25). A build from scratch has not been measured, so the limits
+  # leave room for it.
   build_environment:
     slurm_account: "biyc-delta-cpu"
     slurm_partition: "cpu"
-    mem_mb: 16000
-    runtime: 60
-  # The ~187 MB model by curl, when the config gives a weights_url.
+    mem_mb: 8000
+    runtime: 30
+  # The ~187 MB model by curl, when the config gives a weights_url: 18 s and
+  # 0.3 GiB on Delta (2026-10-25).
   download_model:
     slurm_account: "biyc-delta-cpu"
     slurm_partition: "cpu"
-    mem_mb: 4000
-    runtime: 30
+    mem_mb: 2000
+    runtime: 10
 
 # CPU cores per CPU job (Slurm --cpus-per-task); everything else takes 1, and
 # process_scene takes threads_per_scene from the config.
