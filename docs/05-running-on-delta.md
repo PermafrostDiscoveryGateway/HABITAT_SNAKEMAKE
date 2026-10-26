@@ -74,7 +74,7 @@ squeue -u $USER
 ### 4. Results
 
 - **Polygons:** `/work/hdd/biyc/habitat/results/sample/yellowknife_wv03_20230808_final.shp`. They should match the laptop run.
-- **Timing, memory and GPU use:** `/work/hdd/biyc/habitat/benchmarks/sample/process_scene/yellowknife_wv03_20230808.tsv` for the time (compare it with the ~271 s on a laptop CPU), and `python3 scripts/benchmark_table.py --config config/config.delta.yaml` for the time, peak memory and GPU use of every job (see [Benchmarks and job statistics](#benchmarks-and-job-statistics)). Use them to set `runtime` and `mem_mb` in the profile.
+- **Timing, memory and GPU use:** `/work/hdd/biyc/habitat/benchmarks/sample/<run_id>/process_scene/yellowknife_wv03_20230808.tsv` for the time (compare it with the ~271 s on a laptop CPU), and `./benchmarks.sh` for the time, peak memory and GPU use of every job in the latest run (see [Benchmarks and job statistics](#benchmarks-and-job-statistics)). Use them to set `runtime` and `mem_mb` in the profile.
 - **Run log:** `logs/process_scene/yellowknife_wv03_20230808.log`. Slurm's own logs are under `.snakemake/slurm_logs/`.
 
 ## Benchmarks and job statistics
@@ -85,25 +85,40 @@ Three sources describe how a job went, and they don't measure the same thing:
 |---|---|---|
 | Snakemake's benchmark file, one per job; every step has one | Wall time, CPU time and load, a memory figure, file I/O | It samples, so its memory figure can miss short peaks (in darts-nextgen's runs on Delta it was 4% to 20% below `sacct`). It has no GPU column, and the format is fixed by Snakemake. |
 | Slurm's accounting, `sacct` | State, elapsed time, peak host memory (`MaxRSS`, in KiB), CPU time, disk I/O, and on Delta the GPU: `gres/gpumem` (GPU memory) and `gres/gpuutil` (GPU utilisation) in the `TRESUsageInMax` field | The best source for peak memory; use it to set `mem_mb`. Slurm's documentation does not say whether `gpuutil` is an average or a peak, so compare runs of the same kind with it, but don't read it as a precise average. Local rules (`download_imagery`) are not Slurm jobs and have no record. |
-| `scripts/benchmark_table.py` | Both of the above in one table: one row per Slurm job (every attempt, failed ones included), with the benchmark's wall time, CPU load and memory next to Slurm's memory, GPU and disk numbers; steps that ran on the login node are listed with state `local` | Run it on Delta, from the repository folder, after a run. It finds the job IDs from `.snakemake/slurm_logs/` and from Snakemake's own run logs in `.snakemake/log/` (the Slurm plugin deletes the log file of a job that succeeded, and every log after 10 days, but the run logs still name them). `sacct` itself keeps records for longer. |
+| `scripts/benchmark_table.py` (`./benchmarks.sh`) | Both of the above in one table: one row per Slurm job (every attempt, failed ones included), with the benchmark's wall time, CPU load and memory next to Slurm's memory, GPU and disk numbers; steps that ran on the login node are listed with state `local` | Run it on Delta, from the repository folder, after a run. It finds the job IDs from `.snakemake/slurm_logs/` and from Snakemake's own run logs in `.snakemake/log/` (the Slurm plugin deletes the log file of a job that succeeded, and every log after 10 days, but the run logs still name them). `sacct` itself keeps records for longer. |
 
-Every step writes its benchmark file into `benchmarks_dir`. `config/config.delta.yaml` sets it to `/work/hdd/biyc/habitat/benchmarks/sample`; give each new config or region its own folder, so runs can be compared by comparing folders. Without the setting, the folder is `benchmarks/` in the checkout, where earlier versions wrote them; `--benchmarks benchmarks` reads those.
+### Runs
 
-| Step | Benchmark file |
+Every run writes into its own folder, `<benchmarks_dir>/<run_id>/`, where `run_id` is the UTC time the run started (`20261026T153045Z`). Running the same inputs twice gives two folders, so the runs can be compared. `config/config.delta.yaml` sets `benchmarks_dir` to `/work/hdd/biyc/habitat/benchmarks/sample`; give each new config or region its own, so a region's runs stay together. Without the setting, the folder is `benchmarks/` in the checkout.
+
+`run_delta.sh` sets the id when it starts; the Slurm jobs inherit it, so every job of a run writes into the same folder. A run that has nothing to do (every output exists) and a dry run create no folder. Snakemake skips scenes whose output exists, so to measure the same scenes again, add `--forceall`: `./run_delta.sh --forceall`.
+
+| File | Contents |
 |---|---|
-| `build_environment` | `<benchmarks_dir>/build_environment.tsv` |
-| `download_model` | `<benchmarks_dir>/download_model.tsv` |
-| `download_imagery` | `<benchmarks_dir>/download_imagery/<scene>.tsv` |
-| `make_test_data` | `<benchmarks_dir>/make_test_data.tsv` |
-| `process_scene` | `<benchmarks_dir>/process_scene/<scene>.tsv` |
+| `<run_id>/build_environment.tsv`, `<run_id>/download_model.tsv`, `<run_id>/make_test_data.tsv` | Snakemake's benchmark of that step |
+| `<run_id>/download_imagery/<scene>.tsv`, `<run_id>/process_scene/<scene>.tsv` | Snakemake's benchmark of that step for one scene |
+| `<run_id>/run.json` | What the run was: `start_time`, `end_time`, `status` (`running`, `success` or `failed`), `host`, `user`, the `command`, the config files and the full `config`, the `scenes`, the HABITAT commit and this repository's commit (`-dirty` if it had uncommitted changes), and the name of Snakemake's run log (which is how the table matches Slurm jobs to the run) |
+| `<run_id>/summary.tsv` | The table, as the script last wrote it for this run |
 
-Snakemake writes each file when its job succeeds and overwrites it on a rerun, so a failed attempt leaves no benchmark; the table still lists it, from Slurm.
+A benchmark file has Snakemake's fixed columns: `s` and `h:m:s` (wall time), `max_rss`, `max_vms`, `max_uss`, `max_pss` (memory, MB), `io_in`, `io_out` (MB read and written), `mean_load` and `cpu_time`. It has no timestamp, run or config of its own; the folder and `run.json` say which run it belongs to, and the table adds what Slurm knows (state, start time, peak memory, GPU).
+
+Snakemake writes a benchmark file when its job succeeds, so a failed attempt leaves none; the table still lists it, from Slurm. Benchmark files written before runs had folders (`<benchmarks_dir>/<rule>/...`) show up as the run `unversioned`.
 
 ```bash
-python3 scripts/benchmark_table.py --config config/config.delta.yaml
+./benchmarks.sh
 ```
 
-`--config` tells it which benchmark folder to read (use the config the run used). By default every attempt is listed, including failed and cancelled ones (an out-of-memory kill shows as `OUT_OF_MEMORY`); `--completed` lists only the jobs that finished, and `--rules process_scene` limits it to some rules. It prints the table and writes it to `<benchmarks_dir>/summary.tsv`. To check one job by hand:
+This is the table of the latest run (`python3 scripts/benchmark_table.py --config config/config.delta.yaml` does the same; `CONFIG=config/other.yaml ./benchmarks.sh` reads another config's folder). It starts with a line saying what the run was, and writes the table to `<run_id>/summary.tsv`. Other views:
+
+| Command | Shows |
+|---|---|
+| `./benchmarks.sh --list` | Every run: start, status, config, commits, scene count |
+| `./benchmarks.sh --run 20261026` | One run: a `run_id`, the start of one, `latest` or `previous` |
+| `./benchmarks.sh --compare` | The latest run against the one before, one row per step: `A -> B (+x%)` for time, host memory, GPU memory and CPU time |
+| `./benchmarks.sh --compare 20261025 20261026` | Any two runs |
+| `./benchmarks.sh --all` | Every run in one table (also written to `<benchmarks_dir>/summary.tsv`) |
+
+By default every attempt is listed, including failed and cancelled ones (an out-of-memory kill shows as `OUT_OF_MEMORY`); `--completed` lists only the jobs that finished, and `--rules process_scene` limits it to some rules. A Slurm job is matched to its run through the run log named in `run.json`; a job from before this was recorded goes to `unversioned`, or to the latest run that started before the job was submitted. To check one job by hand:
 
 ```bash
 sacct -j <jobid> --format=JobID,State,Elapsed,MaxRSS,TRESUsageInMax%110
@@ -159,7 +174,7 @@ output_dir: /work/hdd/biyc/habitat/results/<region>
 
 Then:
 - set `runtime` and `mem_mb` in the profile from the sample's numbers (`python3 scripts/benchmark_table.py --config config/config.delta.yaml`), scaled to the scene size, with some headroom;
-- set `benchmarks_dir` to a new folder for the region, so its numbers are kept apart from the sample's;
+- set `benchmarks_dir` to a new folder for the region, so its runs are kept apart from the sample's;
 - start with a dry run (`-n`) and one or two scenes, then run the rest.
 
 Snakemake skips finished scenes, and `keep-going` means one failed scene doesn't stop the others. If a run is interrupted, start it again.

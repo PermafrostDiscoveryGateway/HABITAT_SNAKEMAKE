@@ -9,6 +9,11 @@
 #                                  # several config files, later ones win
 #   UPDATE_HABITAT=false ./run_delta.sh   # keep the pinned HABITAT commit
 #
+# Each run's benchmarks go to benchmarks_dir/<run_id>/ (the UTC start time), so
+# repeating a run never overwrites the one before. ./benchmarks.sh shows the
+# table of the latest run; add --compare for the latest against the one before.
+# A rerun of finished scenes does nothing: add --forceall to run them again.
+#
 # A real run is started inside a tmux session (habitat), since snakemake has
 # to keep running on the login node until every Slurm job is done. Detach
 # with Ctrl-b d; reattach from the same login node with
@@ -62,7 +67,10 @@ if [[ -n "${TMUX:-}" || "$DRY_RUN" == true ]]; then
     if [[ "$DRY_RUN" == false && "$UPDATE_HABITAT" == true ]]; then
         scripts/update_habitat.sh
     fi
-    echo "Running in $REPO_ROOT on $(hostname):"
+    # The run's id (its benchmark folder is benchmarks_dir/<run_id>); the Slurm jobs
+    # inherit it, so they write into the same folder.
+    export HABITAT_RUN_ID="${HABITAT_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+    echo "Running in $REPO_ROOT on $(hostname), run $HABITAT_RUN_ID:"
     echo "  ${CMD[*]}"
     exec "${CMD[@]}"
 fi
