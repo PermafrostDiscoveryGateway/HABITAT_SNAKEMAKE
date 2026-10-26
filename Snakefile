@@ -17,23 +17,35 @@
 # Local run on real data (edit the paths first):
 #   snakemake --configfile config/config.local.yaml --cores 2
 #
-# On NCSA Delta, each `process_scene` job is a 1-GPU Slurm job (docs/05-running-on-delta.md):
+# On NCSA Delta, each `process_scene` job is a 1-GPU Slurm job, and the
+# environment build and model download are small CPU jobs (docs/05-running-on-delta.md):
 #   ./run_delta.sh
+#
+# Every rule writes a Snakemake benchmark file into benchmarks_dir/<run_id>/, where
+# run_id is the UTC time the run started (e.g. 20261026T153045Z), so two runs of the
+# same inputs never overwrite each other. Each run folder also has a run.json (config,
+# HABITAT commit, scenes, start/end, status). scripts/benchmark_table.py joins them
+# with Slurm's accounting (GPU included): ./benchmarks.sh shows the latest run.
 #
 # Dry run: add -n.
 
+import json
 import os
+import re
+import socket
 import subprocess
+import sys
+from datetime import datetime, timezone
 
 if not config:
     raise WorkflowError("Pass a config, e.g. --configfile config/config.test.yaml")
 
 # With a cluster executor these run where snakemake runs (the Delta login
-# node, which has internet access); only `process_scene` is submitted as a job.
+# node, which has internet access). Every other rule is submitted as a job; the
+# Slurm settings for each (account, partition, memory, time) are in the
+# profile, profiles/delta/config.yaml.
 localrules:
     all,
-    build_environment,
-    download_model,
     make_test_data,
     download_imagery,
 
@@ -51,6 +63,21 @@ SCENE_SUFFIX = config.get("scene_suffix", ".tif")
 OUTPUT_DIR = config["output_dir"]
 FOOTPRINT = config.get("footprint")
 MODEL = config.get("model", {})
+# Where the benchmark files go: benchmarks/ in the checkout unless the config
+# says otherwise, so a config can keep its own.
+BENCH_ROOT = config.get("benchmarks_dir") or "benchmarks"
+
+# One folder per run, named by the UTC time the run started. Slurm jobs run
+# this Snakefile again, so they must get the run's id rather than make their
+# own: it is exported here for the jobs sbatch starts, and run_delta.sh sets it
+# up front. `--config run_id=...` overrides it (the table script takes the
+# YYYYMMDDTHHMMSSZ form).
+RUN_ID = (config.get("run_id") or os.environ.get("HABITAT_RUN_ID")
+          or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
+if not re.fullmatch(r"\d{8}T\d{6}Z", str(RUN_ID)):
+    raise WorkflowError(f"run_id must look like 20261026T153045Z (UTC), not {RUN_ID!r}")
+os.environ["HABITAT_RUN_ID"] = str(RUN_ID)
+BENCH_DIR = os.path.join(BENCH_ROOT, str(RUN_ID))
 
 
 # The HABITAT commit is a param of `process_scene`, so moving the submodule to a new
@@ -71,6 +98,17 @@ def habitat_commit():
 HABITAT_COMMIT = habitat_commit()
 
 
+def workflow_commit():
+    """The commit of this repository, with '-dirty' if it has uncommitted changes."""
+    git = ["git", "-C", workflow.basedir]
+    head = subprocess.run(git + ["rev-parse", "HEAD"], capture_output=True, text=True)
+    if head.returncode != 0:
+        return None
+    dirty = subprocess.run(git + ["status", "--porcelain", "--untracked-files=no"],
+                           capture_output=True, text=True).stdout.strip()
+    return head.stdout.strip() + ("-dirty" if dirty else "")
+
+
 def scenes():
     """Scenes from the config, or every *SCENE_SUFFIX file in scene_dir."""
     if config.get("scenes"):
@@ -82,6 +120,55 @@ def scenes():
 rule all:
     input:
         expand(os.path.join(OUTPUT_DIR, "{scene}_final.shp"), scene=scenes()),
+
+
+# What was run, so a benchmark folder says what it measured. Written when the
+# jobs start (not on a dry run) and completed when the run ends;
+# scripts/benchmark_table.py reads it, including snakemake_log to tell which
+# Slurm jobs belong to the run.
+RUN_JSON = os.path.join(BENCH_DIR, "run.json")
+
+
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def update_run_json(**fields):
+    os.makedirs(BENCH_DIR, exist_ok=True)
+    info = {}
+    if os.path.exists(RUN_JSON):
+        with open(RUN_JSON) as fh:
+            info = json.load(fh)
+    info.update(fields)
+    with open(RUN_JSON, "w") as fh:
+        json.dump(info, fh, indent=2, default=str)
+        fh.write("\n")
+
+
+onstart:
+    run_log = log[0] if isinstance(log, (list, tuple)) and log else log
+    update_run_json(
+        run_id=str(RUN_ID),
+        start_time=utc_now(),
+        status="running",
+        host=socket.gethostname(),
+        user=os.environ.get("USER"),
+        command=" ".join(sys.argv),
+        snakemake_log=os.path.basename(str(run_log)) if run_log else None,
+        configfiles=[str(f) for f in workflow.overwrite_configfiles],
+        workflow_commit=workflow_commit(),
+        habitat_commit=HABITAT_COMMIT,
+        scenes=scenes(),
+        config=config,
+    )
+
+
+onsuccess:
+    update_run_json(end_time=utc_now(), status="success")
+
+
+onerror:
+    update_run_json(end_time=utc_now(), status="failed")
 
 
 # Step 0. Python environment for every HABITAT step, rebuilt when the
@@ -96,6 +183,8 @@ rule build_environment:
         python=config["environment"].get("python", "3.10"),
     log:
         "logs/build_environment.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "build_environment.tsv")
     shell:
         """
         (uv venv --allow-existing --python {params.python} {params.env} &&
@@ -112,6 +201,8 @@ rule download_model:
         url=config.get("weights_url", ""),
     log:
         "logs/download_model.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "download_model.tsv")
     shell:
         """
         if [ -z "{params.url}" ]; then
@@ -135,6 +226,8 @@ rule make_test_data:
         weights="test_data/weights/untrained_unetpp.pth",
     log:
         "logs/make_test_data.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "make_test_data.tsv")
     shell:
         """
         {ENV_PYTHON} scripts/make_test_data.py --scene {output.scene} \
@@ -158,6 +251,8 @@ rule download_imagery:
         s=lambda wc: SAMPLES[wc.sample],
     log:
         "logs/download_imagery/{sample}.log",
+    benchmark:
+        os.path.join(BENCH_DIR, "download_imagery", "{sample}.tsv")
     shell:
         """
         {ENV_PYTHON} scripts/fetch_maxar_open_sample.py \
@@ -189,7 +284,7 @@ rule process_scene:
     log:
         "logs/process_scene/{scene}.log",
     benchmark:
-        "benchmarks/process_scene/{scene}.tsv"
+        os.path.join(BENCH_DIR, "process_scene", "{scene}.tsv")
     threads: config.get("threads_per_scene", 1)
     shell:
         """

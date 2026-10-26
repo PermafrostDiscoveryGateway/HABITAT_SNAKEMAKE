@@ -69,6 +69,7 @@ no_data_value: 0                            # used only when footprint is null
 
 weights: data/model_weights/<name>.pth      # pickled torch model from HABITAT's model_train.py
 output_dir: results/local
+# benchmarks_dir: benchmarks      # optional; where each step's timing goes (default benchmarks/)
 
 device: cpu          # or mps on Apple silicon
 threads_per_scene: 4
@@ -97,7 +98,9 @@ snakemake --configfile config/config.local.yaml --cores 4
 |---|---|
 | `<output_dir>/<scene>_final.shp` (+ `.dbf`, `.shx`, `.prj`, `.cpg`) | Infrastructure polygons with a `class` attribute |
 | `logs/process_scene/<scene>.log` | HABITAT's output for the scene, starting with the HABITAT commit used |
-| `benchmarks/process_scene/<scene>.tsv` | Runtime for the scene (`s` column, in seconds) |
+| `<benchmarks_dir>/<run_id>/process_scene/<scene>.tsv` | Runtime for the scene (`s` column, in seconds). `<run_id>` is the UTC time the run started, e.g. `20261026T153045Z` |
+| `<benchmarks_dir>/<run_id>/<rule>.tsv`, `<benchmarks_dir>/<run_id>/<rule>/<scene>.tsv` | The same for every other step: `build_environment`, `download_model`, `make_test_data`, `download_imagery` |
+| `<benchmarks_dir>/<run_id>/run.json` | What the run was: start and end time, status, config, HABITAT and workflow commits, scenes |
 | `logs/build_environment.log` | Environment build output |
 
 HABITAT deletes its intermediate rasters (clipped, stitched, morphed, georeferenced) once a scene is done.
@@ -106,8 +109,18 @@ Snakemake skips scenes whose output already exists, so an interrupted run can ju
 
 ## Using the benchmarks
 
-The runtimes in `benchmarks/process_scene/` are the basis for estimating GPU-hours on Delta. To combine them:
+Every step writes a Snakemake benchmark file into `<benchmarks_dir>/<run_id>/` (`benchmarks_dir` defaults to `benchmarks/` in the checkout; `run_id` is the UTC time the run started). Each run has its own folder, so repeating a run never overwrites the one before. Snakemake skips scenes that are already done, so to measure the same inputs again, add `--forceall` (or delete the outputs). The `s` column is the wall time in seconds. The memory, I/O and CPU-load columns are `NA` on macOS, so don't rely on them locally; on Delta, Slurm's accounting is the better source anyway ([Benchmarks and job statistics](05-running-on-delta.md#benchmarks-and-job-statistics)).
+
+To see every step of the latest run in one table (it also writes `<benchmarks_dir>/<run_id>/summary.tsv`):
 
 ```bash
-cat benchmarks/process_scene/*.tsv | awk '$1!="s" {n++; s+=$1} END {printf "%d scenes, mean %.0f s\n", n, s/n}'
+python3 scripts/benchmark_table.py --config config/config.sample.yaml
+```
+
+`--list` lists the runs, `--run <run_id>` shows one (the start of the id is enough), and `--compare` sets the latest run against the one before, step by step. These are described under [Benchmarks and job statistics](05-running-on-delta.md#benchmarks-and-job-statistics).
+
+The runtimes in `<benchmarks_dir>/<run_id>/process_scene/` are the basis for estimating GPU-hours on Delta. To combine those of one run:
+
+```bash
+cat benchmarks/<run_id>/process_scene/*.tsv | awk '$1!="s" {n++; s+=$1} END {printf "%d scenes, mean %.0f s\n", n, s/n}'
 ```
