@@ -5,7 +5,12 @@
 ```
 HABITAT_SNAKEMAKE/
 ├── HABITAT/                    # submodule, never edited here
-├── Snakefile                   # the workflow
+├── Snakefile                   # the workflow's entry point: includes rules/, defines `all`
+├── rules/
+│   ├── common.smk              # config constants, helpers, build_environment, download_model
+│   ├── benchmarks.smk          # run.json, written at the start and end of a run
+│   ├── imagery.smk             # make_test_data, download_imagery
+│   └── inference.smk           # process_scene
 ├── config/
 │   ├── config.test.yaml        # smoke test
 │   ├── config.sample.yaml      # Maxar Open Data scene of Yellowknife
