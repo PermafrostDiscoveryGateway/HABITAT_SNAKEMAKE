@@ -37,4 +37,5 @@ nav:
   - 3. How It Works: 03-how-it-works.md
   - 4. Updating HABITAT: 04-updating-habitat.md
   - 5. Running on Delta: 05-running-on-delta.md
+  - 6. Using as a Module: 06-using-as-a-module.md
   - Documentation Setup: DOCUMENTATION_SETUP.md
