@@ -21,3 +21,4 @@ This runs the full pipeline on a synthetic scene with an untrained model, as a c
 3. [How it works](03-how-it-works.md): the workflow rules and how the config gets into HABITAT
 4. [Updating HABITAT](04-updating-habitat.md): moving to a newer HABITAT commit
 5. [Running on Delta](05-running-on-delta.md): Slurm GPU jobs on NCSA Delta
+6. [Using as a module](06-using-as-a-module.md): reuse these rules from another Snakemake workflow

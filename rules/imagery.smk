@@ -1,13 +1,20 @@
 # Where scenes come from when they aren't already on disk: the smoke test's
-# synthetic inputs, and Maxar Open Data samples (step 2). Both are localrules
-# (see the Snakefile).
+# synthetic inputs, and Maxar Open Data samples (step 2). Both are local rules: on
+# a cluster they run where snakemake runs, which has internet access.
+#
+# Shell commands take everything from params/input, not from the globals of the
+# rule files: inside a module, Snakemake formats a shell command without them.
 #
 # Needs ENV_READY, ENV_PYTHON, SCENE_DIR, SCENE_SUFFIX and BENCH_DIR from
 # rules/common.smk.
 
+MAKE_TEST_DATA = repo_file("../scripts/make_test_data.py")
+FETCH_MAXAR_SAMPLE = repo_file("../scripts/fetch_maxar_open_sample.py")
+
 
 # Not a pipeline step: synthetic inputs referenced by config/config.test.yaml.
 rule make_test_data:
+    localrule: True
     input:
         ENV_READY,
     output:
@@ -18,9 +25,12 @@ rule make_test_data:
         "logs/make_test_data.log",
     benchmark:
         os.path.join(BENCH_DIR, "make_test_data.tsv")
+    params:
+        python=ENV_PYTHON,
+        script=MAKE_TEST_DATA,
     shell:
         """
-        {ENV_PYTHON} scripts/make_test_data.py --scene {output.scene} \
+        {params.python} {params.script:q} --scene {output.scene} \
             --footprint {output.footprint} --weights {output.weights} > {log} 2>&1
         """
 
@@ -35,6 +45,7 @@ SAMPLES = config.get("maxar_open_samples") or {}
 
 
 rule download_imagery:
+    localrule: True
     input:
         ENV_READY,
     output:
@@ -43,13 +54,15 @@ rule download_imagery:
         sample="|".join(SAMPLES) or "^$",
     params:
         s=lambda wc: SAMPLES[wc.sample],
+        python=ENV_PYTHON,
+        script=FETCH_MAXAR_SAMPLE,
     log:
         "logs/download_imagery/{sample}.log",
     benchmark:
         os.path.join(BENCH_DIR, "download_imagery", "{sample}.tsv")
     shell:
         """
-        {ENV_PYTHON} scripts/fetch_maxar_open_sample.py \
+        {params.python} {params.script:q} \
             --ms-url {params.s[ms_url]} --pan-url {params.s[pan_url]} \
             --lon {params.s[lon]} --lat {params.s[lat]} --size-m {params.s[size_m]} \
             --out {output} > {log} 2>&1

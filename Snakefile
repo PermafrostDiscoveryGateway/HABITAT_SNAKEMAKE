@@ -34,21 +34,25 @@
 # with Slurm's accounting (GPU included): ./benchmarks.sh shows the latest run.
 #
 # Dry run: add -n.
+#
+# Use from another workflow: this Snakefile works as a Snakemake module. Paths to
+# files of this repository (scripts/, envs/) are found with repo_file() in rules/common.smk,
+# so the module can come from GitHub; everything else (config paths, HABITAT_DIR,
+# logs/, benchmarks/) is relative to the directory the calling workflow runs in.
+# See docs/06-using-as-a-module.md. run.json is written only when this is the main
+# Snakefile, because Snakemake ignores onstart/onsuccess/onerror inside a module.
 
 import os
 
 if not config:
     raise WorkflowError("Pass a config, e.g. --configfile config/config.test.yaml")
 
-# With a cluster executor these run where snakemake runs (the Delta login
-# node, which has internet access). Every other rule is submitted as a job; the
-# Slurm settings for each (account, partition, memory, time) are in the
-# profile, profiles/delta/config.yaml.
-localrules:
-    all,
-    make_test_data,
-    download_imagery,
-
+# With a cluster executor, make_test_data and download_imagery run where snakemake
+# runs (the Delta login node, which has internet access): they are marked
+# `localrule: True` in rules/imagery.smk, since a `localrules:` line here would
+# not follow the rules when another workflow renames them with `use rule ... as`.
+# Every other rule is submitted as a job; the Slurm settings for each (account,
+# partition, memory, time) are in the profile, profiles/delta/config.yaml.
 
 wildcard_constraints:
     scene=r"[^/]+",

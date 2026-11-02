@@ -2,17 +2,43 @@
 # benchmark folder, and the two setup steps (0 build_environment, 1 download_model).
 # Included first by the Snakefile, so everything below is defined before any other
 # rule file is read.
+#
+# Files of this repository (scripts/, envs/) are found with repo_file(), relative
+# to the rule file that calls it, not by a path from the working directory, so the
+# rules also work when the Snakefile is used as a module from another directory or
+# from GitHub.
 
 import os
 import re
 import subprocess
 from datetime import datetime, timezone
 
+from snakemake.sourcecache import LocalSourceFile
+
+
+def repo_file(rel_path):
+    """Path on disk of a file of this repository, given relative to the rule file
+    calling this (e.g. "../scripts/x.py" from rules/). Call it while the rule file
+    is being read, not from inside a rule.
+
+    A local checkout gives its own path. A GitHub module gives Snakemake's cached
+    copy, which keeps the same path from run to run only for a tag or commit
+    (github(..., tag="v0.1.0")), not for a branch. The path is a param of the rules
+    that use it, so a path that changed on every run would rerun every scene.
+    workflow.source_path is not used: it copies the file to a new temporary folder
+    each time.
+    """
+    source = workflow.current_basedir.join(rel_path)
+    if isinstance(source, LocalSourceFile):
+        return os.path.normpath(source.get_path_or_uri(secret_free=False))
+    return workflow.sourcecache.get_path(source)
+
 
 HABITAT_DIR = config.get("habitat_dir", "HABITAT")
 ENV_DIR = config["environment"]["path"]
 ENV_PYTHON = os.path.join(ENV_DIR, "bin", "python")
 ENV_READY = os.path.join(ENV_DIR, ".ready")
+ENV_REQUIREMENTS = repo_file("../envs/requirements.txt")
 
 SCENE_DIR = config["scene_dir"]
 SCENE_SUFFIX = config.get("scene_suffix", ".tif")
@@ -77,7 +103,7 @@ def scenes():
 # requirements change.
 rule build_environment:
     input:
-        "envs/requirements.txt",
+        ENV_REQUIREMENTS,
     output:
         touch(ENV_READY),
     params:
