@@ -152,6 +152,7 @@ onstart:
         start_time=utc_now(),
         status="running",
         host=socket.gethostname(),
+        pid=os.getpid(),  # lets benchmark_table.py spot a run that was killed (onerror never ran)
         user=os.environ.get("USER"),
         command=" ".join(sys.argv),
         snakemake_log=os.path.basename(str(run_log)) if run_log else None,

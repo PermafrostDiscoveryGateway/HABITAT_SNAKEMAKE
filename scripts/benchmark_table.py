@@ -69,6 +69,7 @@ import argparse
 import csv
 import json
 import re
+import socket
 import subprocess
 import sys
 from collections import defaultdict
@@ -330,13 +331,35 @@ def print_table(rows, columns):
         print("  ".join(r[c].ljust(widths[c]) for c in columns).rstrip())
 
 
+def run_status(info):
+    """run.json's status, except that a `running` run whose Snakemake process is gone is
+    `interrupted`.
+
+    onerror doesn't run when Snakemake is killed (SIGKILL, a reboot, a closed tmux
+    session), so such a run stays `running` in run.json. If the run was started on this
+    machine its pid can be checked; from another machine it can't, and it stays `running`.
+    """
+    status = info.get("status") or "no run.json"
+    if status != "running" or not info.get("pid"):
+        return status
+    if info.get("host") != socket.gethostname():
+        return "running (can't check from this host)"
+    try:
+        args = subprocess.run(["ps", "-p", str(info["pid"]), "-o", "args="],
+                              capture_output=True, text=True).stdout
+    except OSError:
+        return status
+    # the name check guards against the pid having been reused by some other process
+    return status if "snakemake" in args.lower() else "interrupted (process gone)"
+
+
 def run_summary(run_id, run):
     """One line saying what a run was: when, how it ended, which config and commits."""
     info = run["info"]
     if run_id == UNVERSIONED:
         return f"{UNVERSIONED}: benchmark files and jobs from before each run had its own folder"
     started = info.get("start_time") or datetime.strptime(run_id, RUN_FORMAT).strftime("%Y-%m-%dT%H:%M:%SZ")
-    bits = [f"started {started}", info.get("status") or "no run.json"]
+    bits = [f"started {started}", run_status(info)]
     if info.get("configfiles"):
         bits.append("config " + " ".join(Path(f).name for f in info["configfiles"]))
     if info.get("habitat_commit"):
