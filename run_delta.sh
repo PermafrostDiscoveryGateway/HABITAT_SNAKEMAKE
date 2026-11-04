@@ -12,7 +12,7 @@
 # Each run's benchmarks go to benchmarks_dir/<run_id>/ (the UTC start time), so
 # repeating a run never overwrites the one before. ./benchmarks.sh shows the
 # table of the latest run; add --compare for the latest against the one before.
-# A rerun of finished scenes does nothing: add --forceall to run them again.
+# A rerun of finished scenes does nothing: add --forcerun process_scene to run them again.
 #
 # A real run is started inside a tmux session (habitat), since snakemake has
 # to keep running on the login node until every Slurm job is done. Detach
