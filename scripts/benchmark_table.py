@@ -256,7 +256,7 @@ def read_runs(root):
             try:
                 run(folder.name)["info"] = json.loads(info.read_text()) if info.exists() else {}
             except ValueError:
-                run(folder.name)  # a run.json cut short is no reason to lose the benchmarks
+                run(folder.name)["info"] = {"status": "run.json unreadable"}  # a run.json cut short is no reason to lose the benchmarks
     return runs
 
 
