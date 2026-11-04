@@ -148,6 +148,27 @@ def find_jobs(slurm_logs, snakemake_logs):
     return sorted(found.values(), key=lambda j: (j[0], j[1], int(j[2])))
 
 
+JOB_BLOCK = re.compile(r"^\s+jobid: (\d+)\s*$", re.M)
+BENCHMARK = re.compile(r"^\s+benchmark: (\S+)\s*$", re.M)
+SUBMITTED_JOB = re.compile(r"Job (\d+) has been submitted with SLURM jobid (\d+)")
+
+
+def job_benchmarks(snakemake_logs):
+    """{slurm job_id: the benchmark file the run log printed for that job}. The path says
+    which benchmarks_dir and run the job wrote to."""
+    found = {}
+    for run_log in Path(snakemake_logs).glob("*.snakemake.log"):
+        text, current, bench = run_log.read_text(errors="replace"), None, {}
+        for m in re.finditer(f"{JOB_BLOCK.pattern}|{BENCHMARK.pattern}|{SUBMITTED_JOB.pattern}", text, re.M):
+            if m.group(1):
+                current = m.group(1)
+            elif m.group(2) and current:
+                bench[current] = m.group(2)
+            elif m.group(3) and m.group(3) in bench:
+                found[m.group(4)] = bench[m.group(3)]
+    return found
+
+
 def run_sacct(job_ids):
     try:
         out = subprocess.run(["sacct", "-j", ",".join(job_ids), "-P", "-n", f"--format={SACCT_FIELDS}"],
