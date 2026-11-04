@@ -109,7 +109,7 @@ Snakemake skips scenes whose output already exists, so an interrupted run can ju
 
 ## Using the benchmarks
 
-Every step writes a Snakemake benchmark file into `<benchmarks_dir>/<run_id>/` (`benchmarks_dir` defaults to `benchmarks/` in the checkout; `run_id` is the UTC time the run started). Each run has its own folder, so repeating a run never overwrites the one before. Snakemake skips scenes that are already done, so to measure the same inputs again, add `--forceall` (or delete the outputs). The `s` column is the wall time in seconds. The memory, I/O and CPU-load columns are `NA` on macOS, so don't rely on them locally; on Delta, Slurm's accounting is the better source anyway ([Benchmarks and job statistics](05-running-on-delta.md#benchmarks-and-job-statistics)).
+Every step writes a Snakemake benchmark file into `<benchmarks_dir>/<run_id>/` (`benchmarks_dir` defaults to `benchmarks/` in the checkout; `run_id` is the UTC time the run started). Each run has its own folder, so repeating a run never overwrites the one before. Snakemake skips scenes that are already done, so to measure the same inputs again, add `--forcerun process_scene` (or delete the outputs). The `s` column is the wall time in seconds. The memory, I/O and CPU-load columns are `NA` on macOS, so don't rely on them locally; on Delta, Slurm's accounting is the better source anyway ([Benchmarks and job statistics](05-running-on-delta.md#benchmarks-and-job-statistics)).
 
 To see every step of the latest run in one table (it also writes `<benchmarks_dir>/<run_id>/summary.tsv`):
 
