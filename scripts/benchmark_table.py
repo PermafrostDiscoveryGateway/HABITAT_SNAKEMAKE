@@ -425,8 +425,15 @@ def main():
     # Which run each job belongs to: the run log that submitted it, else by when it was submitted.
     log_to_run = {r["info"]["snakemake_log"]: rid for rid, r in runs.items() if r["info"].get("snakemake_log")}
     by_run, unplaced = defaultdict(list), []
+    bench_root, bench_of = Path(bench_dir).resolve(), job_benchmarks(args.snakemake_logs)
     for job in (j for j in find_jobs(args.slurm_logs, args.snakemake_logs) if wanted(j[0])):
         run_id = log_to_run.get(job[3])
+        if job[2] in bench_of:  # the run log says where the job's benchmark went
+            try:
+                parts = Path(bench_of[job[2]]).resolve().relative_to(bench_root).parts
+            except ValueError:
+                continue  # another benchmarks_dir: a run of another config
+            run_id = parts[0] if RUN_ID.fullmatch(parts[0]) else UNVERSIONED
         (by_run[run_id] if run_id else unplaced).append(job)
     asked = [j for run_id in selected for j in by_run[run_id]] + unplaced
     acct = {}
