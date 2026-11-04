@@ -91,7 +91,7 @@ Three sources describe how a job went, and they don't measure the same thing:
 
 Every run writes into its own folder, `<benchmarks_dir>/<run_id>/`, where `run_id` is the UTC time the run started (`20261026T153045Z`). Running the same inputs twice gives two folders, so the runs can be compared. `config/config.delta.yaml` sets `benchmarks_dir` to `/work/hdd/biyc/habitat/benchmarks/sample`; give each new config or region its own, so a region's runs stay together. Without the setting, the folder is `benchmarks/` in the checkout.
 
-`run_delta.sh` sets the id when it starts; the Slurm jobs inherit it, so every job of a run writes into the same folder. A run that has nothing to do (every output exists) and a dry run create no folder. Snakemake skips scenes whose output exists, so to measure the same scenes again, add `--forceall`: `./run_delta.sh --forceall`.
+`run_delta.sh` sets the id when it starts; the Slurm jobs inherit it, so every job of a run writes into the same folder. A run that has nothing to do (every output exists) and a dry run create no folder. Snakemake skips scenes whose output exists, so to measure the same scenes again, add `--forcerun process_scene`: `./run_delta.sh --forcerun process_scene`. (`--forceall` also rebuilds the venv and downloads the scenes again.)
 
 | File | Contents |
 |---|---|

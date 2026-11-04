@@ -58,12 +58,12 @@ set-resources:
   #
   # The venv: `uv pip install` of a few GB of wheels (torch with its CUDA
   # libraries). With the venv already in place it took 15 s and 0.2 GiB
-  # (2026-10-25). A build from scratch has not been measured, so the limits
-  # leave room for it.
+  # (2026-10-25). A build from scratch took 299 s and peaked at 7.7 GiB
+  # (job 23288417, 2026-10-28), too close to 8000 MB, so this leaves room.
   build_environment:
     slurm_account: "biyc-delta-cpu"
     slurm_partition: "cpu"
-    mem_mb: 8000
+    mem_mb: 16000
     runtime: 30
   # The ~187 MB model by curl, when the config gives a weights_url: 18 s and
   # 0.3 GiB on Delta (2026-10-25).

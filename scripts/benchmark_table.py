@@ -149,6 +149,27 @@ def find_jobs(slurm_logs, snakemake_logs):
     return sorted(found.values(), key=lambda j: (j[0], j[1], int(j[2])))
 
 
+JOB_BLOCK = re.compile(r"^\s+jobid: (\d+)\s*$", re.M)
+BENCHMARK = re.compile(r"^\s+benchmark: (\S+)\s*$", re.M)
+SUBMITTED_JOB = re.compile(r"Job (\d+) has been submitted with SLURM jobid (\d+)")
+
+
+def job_benchmarks(snakemake_logs):
+    """{slurm job_id: the benchmark file the run log printed for that job}. The path says
+    which benchmarks_dir and run the job wrote to."""
+    found = {}
+    for run_log in Path(snakemake_logs).glob("*.snakemake.log"):
+        text, current, bench = run_log.read_text(errors="replace"), None, {}
+        for m in re.finditer(f"{JOB_BLOCK.pattern}|{BENCHMARK.pattern}|{SUBMITTED_JOB.pattern}", text, re.M):
+            if m.group(1):
+                current = m.group(1)
+            elif m.group(2) and current:
+                bench[current] = m.group(2)
+            elif m.group(3) and m.group(3) in bench:
+                found[m.group(4)] = bench[m.group(3)]
+    return found
+
+
 def run_sacct(job_ids):
     try:
         out = subprocess.run(["sacct", "-j", ",".join(job_ids), "-P", "-n", f"--format={SACCT_FIELDS}"],
@@ -236,7 +257,7 @@ def read_runs(root):
             try:
                 run(folder.name)["info"] = json.loads(info.read_text()) if info.exists() else {}
             except ValueError:
-                run(folder.name)  # a run.json cut short is no reason to lose the benchmarks
+                run(folder.name)["info"] = {"status": "run.json unreadable"}  # a run.json cut short is no reason to lose the benchmarks
     return runs
 
 
@@ -448,8 +469,15 @@ def main():
     # Which run each job belongs to: the run log that submitted it, else by when it was submitted.
     log_to_run = {r["info"]["snakemake_log"]: rid for rid, r in runs.items() if r["info"].get("snakemake_log")}
     by_run, unplaced = defaultdict(list), []
+    bench_root, bench_of = Path(bench_dir).resolve(), job_benchmarks(args.snakemake_logs)
     for job in (j for j in find_jobs(args.slurm_logs, args.snakemake_logs) if wanted(j[0])):
         run_id = log_to_run.get(job[3])
+        if job[2] in bench_of:  # the run log says where the job's benchmark went
+            try:
+                parts = Path(bench_of[job[2]]).resolve().relative_to(bench_root).parts
+            except ValueError:
+                continue  # another benchmarks_dir: a run of another config
+            run_id = parts[0] if RUN_ID.fullmatch(parts[0]) else UNVERSIONED
         (by_run[run_id] if run_id else unplaced).append(job)
     asked = [j for run_id in selected for j in by_run[run_id]] + unplaced
     acct = {}
