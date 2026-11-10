@@ -1,7 +1,7 @@
 # Demo: a 1 km x 1 km window of downtown Yellowknife, NWT (Maxar Open Data,
 # WorldView-3, 2023-08-08, CC BY-NC 4.0). Same imagery as config.sample.yaml,
 # but a smaller window so every step finishes quickly on a laptop.
-#   snakemake --configfile config/config.demo.yaml --cores 8 --forceall
+#   snakemake --configfile config/config.demo.yaml --cores 8
 
 habitat_dir: HABITAT
 
