@@ -1,0 +1,36 @@
+# Demo: a 1 km x 1 km window of downtown Yellowknife, NWT (Maxar Open Data,
+# WorldView-3, 2023-08-08, CC BY-NC 4.0). Same imagery as config.sample.yaml,
+# but a smaller window so every step finishes quickly on a laptop.
+#   snakemake --configfile config/config.demo.yaml --cores 8
+
+habitat_dir: HABITAT
+
+environment:
+  path: .venv-habitat
+  python: "3.10"
+
+scene_dir: data/demo/scenes
+scenes: [yellowknife_demo_1km]
+footprint: null
+no_data_value: 0
+
+weights: data/model_weights/ResNet50-UNet++_512_0.5FTL_0.90A_0.75G_0.5CE_3class.pth
+weights_url: https://drive.usercontent.google.com/download?id=1RW9YmjTa0CiRUJ4-vQraZS2F0rehCA_f&export=download&confirm=t
+output_dir: results/demo
+
+device: cpu
+threads_per_scene: 8
+
+model:
+  size: 512
+  overlap: 0.5
+  classes: 3
+  encoder: resnet50
+
+maxar_open_samples:
+  yellowknife_demo_1km:
+    ms_url: https://maxar-opendata.s3.amazonaws.com/events/NWT-Canada-Aug-23/ard/11/102020031231/2023-08-08/104001008B463900-ms.tif
+    pan_url: https://maxar-opendata.s3.amazonaws.com/events/NWT-Canada-Aug-23/ard/11/102020031231/2023-08-08/104001008B463900-pan.tif
+    lon: -114.365
+    lat: 62.455
+    size_m: 1024
