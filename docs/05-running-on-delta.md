@@ -150,7 +150,7 @@ Set in `profiles/delta/config.yaml`:
 | `threads_per_scene` (config) | 16 | Slurm `--cpus-per-task`. Tiling and post-processing run on the CPU. 16 is a quarter of a 4-GPU node. |
 | `mem_mb` | 60000 | HABITAT holds every tile's prediction in memory (~3 MB per tile) until stitching, so full scenes need tens of GB |
 | `runtime` | 10 min (process_scene) | Whole ~5 km Maxar tiles took at most about 5 minutes on an A40 (see below). Raise it for larger scenes (Delta's maximum is 48 h). |
-| `build_environment`, `download_model` | `cpu` partition, `biyc-delta-cpu`; 8000 MB / 30 min and 2000 MB / 10 min | Small CPU jobs, so they don't use GPU hours. Set from their measured runs (below), with room for a build of the venv from scratch, which hasn't been measured. |
+| `build_environment`, `download_model` | `cpu` partition, `biyc-delta-cpu`; 16000 MB / 30 min and 2000 MB / 10 min | Small CPU jobs, so they don't use GPU hours. Set from their measured runs (below). A build of the venv from scratch peaked at 7.7 GiB, too close to 8000 MB, so `build_environment` gets 16000 MB. |
 | `jobs` | 8 | Maximum scenes queued or running at once |
 
 To check how much allocation is left:
