@@ -366,12 +366,19 @@ def run_status(info):
     if info.get("host") != socket.gethostname():
         return "running (can't check from this host)"
     try:
-        args = subprocess.run(["ps", "-p", str(info["pid"]), "-o", "args="],
-                              capture_output=True, text=True).stdout
+        out = subprocess.run(["ps", "-p", str(info["pid"]), "-o", "etime=,args="],
+                             capture_output=True, text=True).stdout.split(None, 1)
     except OSError:
         return status
     # the name check guards against the pid having been reused by some other process
-    return status if "snakemake" in args.lower() else "interrupted (process gone)"
+    if len(out) < 2 or "snakemake" not in out[1].lower():
+        return "interrupted (process gone)"
+    # and the age check against a later Snakemake (after a reboot, or another user's) that got the same pid
+    days, _, hms = out[0].rpartition("-")
+    age = int(days or 0) * 86400 + sum(int(v) * 60 ** i for i, v in enumerate(reversed(hms.split(":"))))
+    started = datetime.strptime(info["start_time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    run_age = (datetime.now(timezone.utc) - started).total_seconds()
+    return status if age >= run_age - 60 else "interrupted (process gone)"
 
 
 def run_summary(run_id, run):
