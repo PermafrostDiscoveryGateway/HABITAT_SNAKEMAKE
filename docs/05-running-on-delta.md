@@ -134,6 +134,7 @@ From `benchmark_table.py` after the runs of the 22 NWT tiles (`config/tiles.nwt.
 |---|---|---|---|---|---|
 | `process_scene`, 23 scenes | 29 to 310 s | 1.7 to 9.3 GiB | 0.0 to 1.1 GiB | 0 to 84 | 26 to 225 s |
 | `build_environment` (venv already in place) | 15 s | 0.2 GiB | | | 1 s |
+| `build_environment` (venv built from scratch, job 23288417, 2026-10-28) | 299 s | 7.7 GiB | | | |
 | `download_model` | 18 s | 0.3 GiB | | | 2 s |
 | `download_imagery`, Yellowknife (login node) | 44 s (benchmark) | | | | |
 
